@@ -47,7 +47,7 @@ android {
 }
 
 dependencies {
-
+    implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
