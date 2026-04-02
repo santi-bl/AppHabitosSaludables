@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.health.READ_STEPS"/>
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
+    <uses-permission android:name="android.permission.health.READ_SLEEP"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.android.healthconnect.controller" />
+        <intent>
+            <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -11,15 +23,34 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppHabitosSaludables">
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Rationale actualizado para Android 14+ -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+
+            <!-- Nombre correcto del meta-data -->
+            <meta-data
+                android:name="android.health.connect.CLIENT_ID"
+                android:resource="@array/health_permissions" />
+
+            <!-- Requerido en Android 15 -->
+            <meta-data
+                android:name="android.health.connect.PRIVACY_POLICY_URL"
+                android:value="https://tu-app.com/privacidad" />
+
         </activity>
+
     </application>
 
 </manifest>
