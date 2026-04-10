@@ -1,0 +1,218 @@
+package com.example.apphabitossaludables.ui.user
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.filled.Fireplace
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
+    val actividad by viewModel.actividad.collectAsState()
+    val objetivoPasos = 10000f
+    val progreso = (actividad.pasos / objetivoPasos).coerceIn(0f, 1f)
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Actividad Física", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(Color(0xFFF8F9FA))
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Esfera de Pasos
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(240.dp)
+            ) {
+                CircularProgressIndicator(
+                    progress = { 1f },
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color.LightGray.copy(alpha = 0.3f),
+                    strokeWidth = 12.dp,
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                )
+                CircularProgressIndicator(
+                    progress = { progreso },
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 12.dp,
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                )
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.DirectionsRun,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "${actividad.pasos}",
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = "de ${objetivoPasos.toInt()} pasos",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ActivityDetailCard(
+                    label = "Calorías",
+                    value = String.format("%.0f", actividad.caloriasQuemadas),
+                    unit = "kcal",
+                    icon = Icons.Default.Fireplace,
+                    color = Color(0xFFFF7043),
+                    modifier = Modifier.weight(1f)
+                )
+                ActivityDetailCard(
+                    label = "Distancia",
+                    value = String.format("%.2f", actividad.distanciaMetros / 1000),
+                    unit = "km",
+                    icon = Icons.Default.Route,
+                    color = Color(0xFF42A5F5),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(Modifier.padding(20.dp)) {
+                    Text("Análisis de hoy", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        if (actividad.pasos > 7000) "¡Excelente ritmo! Estás manteniendo un estilo de vida activo."
+                        else "Has estado algo sedentario hoy. ¡Un paseo de 15 min te ayudaría!",
+                        color = Color.DarkGray,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+
+            if (actividad.sesionesEjercicio.isNotEmpty()) {
+                Text(
+                    "Entrenamientos",
+                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                actividad.sesionesEjercicio.forEach { sesion ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val icon = when(sesion.tipo) {
+                                "Correr" -> Icons.AutoMirrored.Filled.DirectionsRun
+                                "Ciclismo" -> Icons.AutoMirrored.Filled.DirectionsBike
+                                else -> Icons.Default.FitnessCenter
+                            }
+                            Box(
+                                modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(sesion.tipo, fontWeight = FontWeight.Bold)
+                                Text("${sesion.duracionMinutos} min", fontSize = 12.sp, color = Color.Gray)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun ActivityDetailCard(
+    label: String,
+    value: String,
+    unit: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(color.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(label, fontSize = 12.sp, color = Color.Gray)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(" $unit", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 2.dp))
+            }
+        }
+    }
+}

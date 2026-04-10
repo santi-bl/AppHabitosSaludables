@@ -1,4 +1,4 @@
-package com.example.apphabitossaludables.ui.screen.auth
+package com.example.apphabitossaludables.ui.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement

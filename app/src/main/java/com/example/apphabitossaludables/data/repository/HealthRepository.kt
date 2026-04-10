@@ -1,83 +1,205 @@
 package com.example.apphabitossaludables.data.repository
 
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.records.HeartRateRecord
-import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.example.apphabitossaludables.data.model.*
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
-class HealthRepository(private val healthConnectClient: HealthConnectClient)
-{
+class HealthRepository(private val healthConnectClient: HealthConnectClient) {
 
-    suspend fun leerPasosDelDia(): Long {
-        // Definimos el inicio del día (00:00 de hoy) en la zona horaria local
+    suspend fun obtenerActividadFisica(): ActividadFisica {
         val startOfDay = ZonedDateTime.now().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
         val endOfDay = Instant.now()
+        val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
-        return try {
-            val response = healthConnectClient.readRecords(
-                ReadRecordsRequest<StepsRecord>(
-                    recordType = StepsRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                )
+        val pasos = try {
+            healthConnectClient.readRecords(
+                ReadRecordsRequest(StepsRecord::class, timeRange)
+            ).records.sumOf { it.count }
+        } catch (e: Exception) { 0L }
+
+        val calorias = try {
+            healthConnectClient.readRecords(
+                ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, timeRange)
+            ).records.sumOf { it.energy.inKilocalories }
+        } catch (e: Exception) { 0.0 }
+
+        val distancia = try {
+            healthConnectClient.readRecords(
+                ReadRecordsRequest(DistanceRecord::class, timeRange)
+            ).records.sumOf { it.distance.inMeters }
+        } catch (e: Exception) { 0.0 }
+
+        val listaSesiones = try {
+            val ejercicioResponse = healthConnectClient.readRecords(
+                ReadRecordsRequest(ExerciseSessionRecord::class, timeRange)
             )
+            ejercicioResponse.records.map { registro ->
+                SesionEjercicio(
+                    tipo = mapearTipoEjercicio(registro.exerciseType),
+                    duracionMinutos = Duration.between(registro.startTime, registro.endTime).toMinutes(),
+                    inicio = registro.startTime
+                )
+            }
+        } catch (e: Exception) { emptyList() }
 
-            // Sumamos todos los registros y devolvemos el total
-            val totalPasos = response.records.sumOf { it.count }
-            println("Total de pasos recogidos: $totalPasos")
+        return ActividadFisica(
+            pasos = pasos,
+            caloriasQuemadas = calorias,
+            distanciaMetros = distancia,
+            sesionesEjercicio = listaSesiones,
+            ultimaActualizacion = Instant.now()
+        )
+    }
 
-            totalPasos
-        } catch (e: Exception) {
-            // Manejar error (por ejemplo, si el usuario no dio permisos)
-            println("Error leyendo pasos: ${e.message}")
-            0L // Devolvemos 0 si falla
+    suspend fun obtenerVitalidadSemanal(): List<VitalidadSemanal> {
+        val hoy = LocalDate.now()
+        val lista = mutableListOf<VitalidadSemanal>()
+        
+        // Simulación de cálculo para los últimos 7 días
+        // En una app real, aquí haríamos una petición por cada día
+        for (i in 6 downTo 0) {
+            val fecha = hoy.minusDays(i.toLong())
+            val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
+            val endOfDay = fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+            val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
+
+            try {
+                val pasos = healthConnectClient.readRecords(ReadRecordsRequest(StepsRecord::class, timeRange)).records.sumOf { it.count }
+                val agua = healthConnectClient.readRecords(ReadRecordsRequest(HydrationRecord::class, timeRange)).records.sumOf { it.volume.inLiters }
+                val sueno = healthConnectClient.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange)).records.lastOrNull()
+                val minSueno = sueno?.let { Duration.between(it.startTime, it.endTime).toMinutes() } ?: 0L
+
+                val scorePasos = (pasos / 10000f * 40).coerceAtMost(40f)
+                val scoreSueno = (minSueno / 480f * 40).coerceAtMost(40f)
+                val scoreAgua = (agua / 2.5 * 20).coerceAtMost(20.0)
+                
+                lista.add(VitalidadSemanal(fecha, (scorePasos + scoreSueno + scoreAgua.toFloat()).toInt()))
+            } catch (e: Exception) {
+                lista.add(VitalidadSemanal(fecha, 0))
+            }
+        }
+        return lista
+    }
+
+    private fun mapearTipoEjercicio(tipoInt: Int): String {
+        return when (tipoInt) {
+            ExerciseSessionRecord.EXERCISE_TYPE_RUNNING -> "Correr"
+            ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> "Caminar"
+            ExerciseSessionRecord.EXERCISE_TYPE_BIKING -> "Ciclismo"
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER,
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL -> "Natación"
+            ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING -> "Pesas"
+            else -> "Ejercicio"
         }
     }
 
-    suspend fun leerPulsacionesDelDia(): Long {
-        // Definimos el inicio del día (00:00 de hoy)
+    suspend fun obtenerNutricion(): Nutricion {
         val startOfDay = ZonedDateTime.now().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
         val endOfDay = Instant.now()
+        val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
         return try {
-            val response = healthConnectClient.readRecords(
-                ReadRecordsRequest<HeartRateRecord>(
-                    recordType = HeartRateRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                )
+            val hidratacionResponse = healthConnectClient.readRecords(
+                ReadRecordsRequest(HydrationRecord::class, timeRange)
             )
 
-            var sumaPulsaciones = 0L
-            var totalMuestras = 0
+            Nutricion(
+                hidratacionLitros = hidratacionResponse.records.sumOf { it.volume.inLiters },
+                fecha = Instant.now()
+            )
+        } catch (e: Exception) {
+            println("Error leyendo nutricion: ${e.message}")
+            Nutricion()
+        }
+    }
 
-            // Recorremos todos los registros y sus muestras internas
-            for (registro in response.records) {
+    suspend fun obtenerSignosVitales(): SignosVitales {
+        val startOfDay = ZonedDateTime.now().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = Instant.now()
+        val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
+
+        return try {
+            val pulsacionesResponse = healthConnectClient.readRecords(
+                ReadRecordsRequest(HeartRateRecord::class, timeRange)
+            )
+
+            var sumaPulsacionesTotal = 0L
+            var totalMuestrasTotal = 0
+            val porHora = mutableMapOf<Int, MutableList<Long>>()
+
+            for (registro in pulsacionesResponse.records) {
+                val hora = registro.startTime.atZone(ZoneId.systemDefault()).hour
+                if (!porHora.containsKey(hora)) porHora[hora] = mutableListOf()
+                
                 for (muestra in registro.samples) {
-                    sumaPulsaciones += muestra.beatsPerMinute
-                    totalMuestras++
+                    sumaPulsacionesTotal += muestra.beatsPerMinute
+                    totalMuestrasTotal++
+                    porHora[hora]?.add(muestra.beatsPerMinute)
                 }
             }
 
-            // Calculamos y devolvemos la media
-            if (totalMuestras > 0) {
-                val mediaPulsaciones = sumaPulsaciones / totalMuestras
-                println("Pulsaciones medias recogidas: $mediaPulsaciones (de $totalMuestras muestras)")
-                mediaPulsaciones
-            } else {
-                println("No se encontraron datos de pulsaciones hoy")
-                0L
-            }
+            val mediaTotal = if (totalMuestrasTotal > 0) sumaPulsacionesTotal / totalMuestrasTotal else 0L
+            val maximo = if (totalMuestrasTotal > 0) porHora.values.flatten().maxOrNull() ?: 0L else 0L
+            val minimo = if (totalMuestrasTotal > 0) porHora.values.flatten().minOrNull() ?: 0L else 0L
+            val mediasPorHora = porHora.mapValues { (_, lista) -> lista.average().toLong() }
 
+            SignosVitales(
+                frecuenciaCardiacaMedia = mediaTotal,
+                frecuenciaCardiacaMaxima = maximo,
+                frecuenciaCardiacaMinima = minimo,
+                pulsacionesPorHora = mediasPorHora,
+                fecha = Instant.now()
+            )
         } catch (e: Exception) {
-            println("Error leyendo pulsaciones: ${e.message}")
-            0L // Devolvemos 0 si falla
+            println("Error leyendo signos vitales: ${e.message}")
+            SignosVitales()
         }
     }
-    suspend fun leerSuenoDelDia(): Long {
-        // aquí irá la lógica de sueño
-        return 0L
+
+    suspend fun leerSuenoDelDia(): Suenio? {
+        val inicio = Instant.now().minus(24, ChronoUnit.HOURS)
+        val fin = Instant.now()
+
+        return try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(inicio, fin)
+                )
+            )
+
+            if (response.records.isEmpty()) return null
+            val sesion = response.records.last()
+
+            val etapas = mutableMapOf<String, Long>()
+            sesion.stages.forEach { etapa ->
+                val nombreEtapa = when (etapa.stage) {
+                    SleepSessionRecord.STAGE_TYPE_AWAKE -> "Despierto"
+                    SleepSessionRecord.STAGE_TYPE_LIGHT -> "Sueño ligero"
+                    SleepSessionRecord.STAGE_TYPE_DEEP -> "Sueño profundo"
+                    SleepSessionRecord.STAGE_TYPE_REM -> "REM"
+                    else -> "Otros"
+                }
+                val min = ChronoUnit.MINUTES.between(etapa.startTime, etapa.endTime)
+                etapas[nombreEtapa] = (etapas[nombreEtapa] ?: 0L) + min
+            }
+
+            Suenio(
+                duracionTotalMinutos = ChronoUnit.MINUTES.between(sesion.startTime, sesion.endTime),
+                horaInicio = sesion.startTime,
+                horaFin = sesion.endTime,
+                etapas = etapas
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 }

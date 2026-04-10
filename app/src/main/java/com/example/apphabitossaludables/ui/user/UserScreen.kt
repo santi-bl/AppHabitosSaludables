@@ -1,0 +1,263 @@
+package com.example.apphabitossaludables.ui.user
+
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.*
+import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
+
+@Composable
+fun UserScreen(
+    viewModel: AppHabitusViewModel,
+    onLogout: () -> Unit,
+    onFoodScreen: () -> Unit,
+    onExerciseScreen: () -> Unit,
+    onDreamScreen: () -> Unit,
+    onVitalsScreen: () -> Unit
+) {
+    val context = LocalContext.current
+    val healthConnectClient = remember { HealthConnectClient.getOrCreate(context) }
+
+    val permisosRequeridos = setOf(
+        HealthPermission.getReadPermission(StepsRecord::class),
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
+        HealthPermission.getReadPermission(HydrationRecord::class),
+        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(DistanceRecord::class),
+        HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+    )
+
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { permisosConcedidos ->
+        if (permisosConcedidos.containsAll(permisosRequeridos)) {
+            viewModel.cargarDatosDelDia()
+        } else {
+            Toast.makeText(context, "Faltan algunos permisos de salud", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val otorgados = healthConnectClient.permissionController.getGrantedPermissions()
+        if (otorgados.containsAll(permisosRequeridos)) {
+            viewModel.cargarDatosDelDia()
+        } else {
+            requestPermissionLauncher.launch(permisosRequeridos)
+        }
+    }
+
+    val actividad by viewModel.actividad.collectAsState()
+    val nutricion by viewModel.nutricion.collectAsState()
+    val signosVitales by viewModel.signosVitales.collectAsState()
+    val sueño by viewModel.sueño.collectAsState()
+    val historial by viewModel.historialVitalidad.collectAsState()
+
+    // Cálculo del "Índice de Vitalidad" (0-100)
+    val score = remember(actividad, nutricion, sueño) {
+        val actScore = (actividad.pasos / 8000f).coerceIn(0f, 1f) * 40
+        val sleepScore = ((sueño?.duracionTotalMinutos ?: 0) / 450f).coerceIn(0f, 1f) * 40
+        val nutScore = (nutricion.hidratacionLitros / 2.0).coerceIn(0.0, 1.0) * 20
+        (actScore + sleepScore + nutScore).toInt()
+    }
+
+    val estadoMensaje = when {
+        score > 80 -> "¡Día Excelente! Estás en equilibrio."
+        score > 50 -> "Buen ritmo. Sigue así."
+        else -> "Día de recuperación. ¡Ánimo!"
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "Hola, Santi", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onLogout) {
+                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir", tint = Color.Gray)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Esfera Central de Puntuación
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(200.dp)
+        ) {
+            CircularProgressIndicator(
+                progress = { 1f },
+                modifier = Modifier.fillMaxSize(),
+                color = Color.White,
+                strokeWidth = 12.dp,
+            )
+            CircularProgressIndicator(
+                progress = { score / 100f },
+                modifier = Modifier.fillMaxSize(),
+                color = if (score > 70) Color(0xFF4CAF50) else if (score > 40) Color(0xFFFFC107) else Color(0xFFFF5252),
+                strokeWidth = 12.dp,
+                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = "$score", style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.ExtraBold)
+                Text(text = "Puntos", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
+            }
+        }
+
+        Text(
+            text = estadoMensaje,
+            modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = Color.DarkGray
+        )
+
+        if (historial.isNotEmpty()) {
+            Text(
+                "Historial de Vitalidad",
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    historial.forEach { item ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .width(12.dp)
+                                    .height((item.puntuacion.toFloat()).dp)
+                                    .background(
+                                        brush = Brush.verticalGradient(
+                                            listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                                        ),
+                                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                                    )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = item.fecha.dayOfWeek.name.take(1),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Grid de accesos directos
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DashboardCard(
+                    title = "Actividad",
+                    subtitle = "${actividad.pasos} pasos",
+                    icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                    color = Color(0xFF42A5F5),
+                    modifier = Modifier.weight(1f),
+                    onClick = onExerciseScreen
+                )
+                DashboardCard(
+                    title = "Sueño",
+                    subtitle = sueño?.let { "${it.duracionTotalMinutos / 60}h ${it.duracionTotalMinutos % 60}m" } ?: "Sin datos",
+                    icon = Icons.Default.Bedtime,
+                    color = Color(0xFF7E57C2),
+                    modifier = Modifier.weight(1f),
+                    onClick = onDreamScreen
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DashboardCard(
+                    title = "Nutrición",
+                    subtitle = "${nutricion.hidratacionLitros}L agua",
+                    icon = Icons.Default.LocalDrink,
+                    color = Color(0xFF26C6DA),
+                    modifier = Modifier.weight(1f),
+                    onClick = onFoodScreen
+                )
+                DashboardCard(
+                    title = "Vitals",
+                    subtitle = "${signosVitales.frecuenciaCardiacaMedia} ppm",
+                    icon = Icons.Default.Favorite,
+                    color = Color(0xFFEF5350),
+                    modifier = Modifier.weight(1f),
+                    onClick = onVitalsScreen
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(30.dp))
+    }
+}
+
+@Composable
+fun DashboardCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(110.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(icon, contentDescription = null, tint = color)
+            Column {
+                Text(text = title, style = MaterialTheme.typography.labelLarge, color = Color.Gray)
+                Text(text = subtitle, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
