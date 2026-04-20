@@ -202,4 +202,77 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
             null
         }
     }
+
+    suspend fun agregarHidratacion(litros: Double) {
+        val inicio = Instant.now().minusSeconds(60)
+        val fin = Instant.now()
+        val record = HydrationRecord(
+            startTime = inicio,
+            endTime = fin,
+            volume = androidx.health.connect.client.units.Volume.liters(litros),
+            startZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now()),
+            endZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now())
+        )
+        try {
+            healthConnectClient.insertRecords(listOf(record))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw e
+        }
+    }
+
+    suspend fun eliminarUltimaHidratacion() {
+        val hoy = Instant.now().truncatedTo(ChronoUnit.DAYS)
+        try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = HydrationRecord::class,
+                    timeRangeFilter = TimeRangeFilter.after(hoy)
+                )
+            )
+            if (response.records.isNotEmpty()) {
+                val ultimo = response.records.last()
+                healthConnectClient.deleteRecords(
+                    recordType = HydrationRecord::class,
+                    recordIdsList = listOf(ultimo.metadata.id),
+                    clientRecordIdsList = emptyList()
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun obtenerPesoActual(): Double {
+        return obtenerHistorialPeso().lastOrNull()?.second ?: 0.0
+    }
+
+    suspend fun obtenerHistorialPeso(): List<Pair<Instant, Double>> {
+        val inicio = Instant.now().minus(90, ChronoUnit.DAYS)
+        try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = WeightRecord::class,
+                    timeRangeFilter = TimeRangeFilter.after(inicio)
+                )
+            )
+            return response.records.map { it.time to it.weight.inKilograms }
+        } catch (e: Exception) {
+            return emptyList()
+        }
+    }
+
+    suspend fun agregarPeso(kg: Double) {
+        val record = WeightRecord(
+            time = Instant.now(),
+            weight = androidx.health.connect.client.units.Mass.kilograms(kg),
+            zoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now())
+        )
+        try {
+            healthConnectClient.insertRecords(listOf(record))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw e
+        }
+    }
 }

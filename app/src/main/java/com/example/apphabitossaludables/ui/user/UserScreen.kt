@@ -29,6 +29,7 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun UserScreen(
@@ -37,7 +38,8 @@ fun UserScreen(
     onFoodScreen: () -> Unit,
     onExerciseScreen: () -> Unit,
     onDreamScreen: () -> Unit,
-    onVitalsScreen: () -> Unit
+    onVitalsScreen: () -> Unit,
+    onWeightScreen: () -> Unit
 ) {
     val context = LocalContext.current
     val healthConnectClient = remember { HealthConnectClient.getOrCreate(context) }
@@ -49,7 +51,10 @@ fun UserScreen(
         HealthPermission.getReadPermission(HydrationRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
-        HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getReadPermission(WeightRecord::class),
+        HealthPermission.getWritePermission(WeightRecord::class),
+        HealthPermission.getWritePermission(HydrationRecord::class)
     )
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
@@ -61,6 +66,8 @@ fun UserScreen(
             Toast.makeText(context, "Faltan algunos permisos de salud", Toast.LENGTH_SHORT).show()
         }
     }
+
+    val pesoActual by viewModel.pesoActual.collectAsState()
 
     LaunchedEffect(Unit) {
         val otorgados = healthConnectClient.permissionController.getGrantedPermissions()
@@ -99,13 +106,22 @@ fun UserScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+    val userName by viewModel.userName.collectAsState()
+
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Hola, Santi", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            IconButton(onClick = onLogout) {
+            Text(
+                text = "Hola, $userName",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(onClick = {
+                FirebaseAuth.getInstance().signOut()
+                onLogout()
+            }) {
                 Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir", tint = Color.Gray)
             }
         }
@@ -225,6 +241,15 @@ fun UserScreen(
                     onClick = onVitalsScreen
                 )
             }
+            // Botón de Medidas Corporales
+            DashboardCard(
+                title = "Medidas Corporales",
+                subtitle = if (pesoActual > 0) "$pesoActual kg" else "Registrar peso",
+                icon = Icons.Default.MonitorWeight,
+                color = Color(0xFF4DB6AC),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onWeightScreen
+            )
         }
 
         Spacer(modifier = Modifier.height(30.dp))

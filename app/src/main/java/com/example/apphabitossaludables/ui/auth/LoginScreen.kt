@@ -1,88 +1,132 @@
 package com.example.apphabitossaludables.ui.auth
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.apphabitossaludables.R
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.apphabitossaludables.viewmodel.AuthViewModel
 
 @Composable
-fun LoginScreen(onLogin:(String) ->Unit,
-                onNavigateToRegister:() -> Unit) {
-    var email by remember { mutableStateOf("")}
-    var password by remember { mutableStateOf("")}
-    var error by remember { mutableStateOf<String?>(null) }
-    Column(Modifier
-        .fillMaxSize()
-        .padding(20.dp),
+fun LoginScreen(
+    onLogin: (String) -> Unit, 
+    onNavigateToRegister: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit
+) {
+    val authViewModel: AuthViewModel = viewModel()
+    val authState by authViewModel.authState.collectAsState()
+
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    LaunchedEffect(authState) {
+        if (authState is AuthViewModel.AuthState.Success) {
+            onLogin((authState as AuthViewModel.AuthState.Success).userId)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center)
-    {
+        verticalArrangement = Arrangement.Center
+    ) {
         Image(
-            painter = painterResource(id= R.drawable.app),
-            contentDescription = "Imagen de android",
-            modifier = Modifier
-                .height(250.dp)
-                .fillMaxWidth()
+            painter = painterResource(id = R.drawable.app),
+            contentDescription = "Logo",
+            modifier = Modifier.height(150.dp).fillMaxWidth()
         )
-        Text(text = "INICIAR SESION",style = MaterialTheme.typography.headlineMedium,textDecoration = TextDecoration.Underline)
-        TextField(
+        
+        Text(
+            text = "BIENVENIDO",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        if (authState is AuthViewModel.AuthState.Error) {
+            Text(
+                text = (authState as AuthViewModel.AuthState.Error).message,
+                color = Color.Red,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+
+        OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("EMAIL") },
-            modifier = Modifier.fillMaxWidth()
+            label = { Text("Email") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
         )
-        Spacer(Modifier.height(10.dp))
-        TextField(
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("CONTRASEÑA") },
-            modifier = Modifier.fillMaxWidth()
+            label = { Text("Contraseña") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = PasswordVisualTransformation(),
+            shape = RoundedCornerShape(12.dp)
         )
-        Spacer(Modifier.height(20.dp))
-        Button(
-            modifier = Modifier.fillMaxWidth(), onClick =
-                {    onLogin("user")    })
-        { Text("Acceder") }
-        Spacer(modifier = Modifier.height(20.dp))
+        
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+            TextButton(onClick = onNavigateToForgotPassword) {
+                Text("¿Olvidaste tu contraseña?", fontSize = 14.sp)
+            }
+        }
 
-        //LINEA SEPARADORA
+        Spacer(Modifier.height(12.dp))
 
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            thickness = 1.dp,
-            color = Color.Gray
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        TextButton(onClick =  onNavigateToRegister) {
+        if (authState is AuthViewModel.AuthState.Loading) {
+            CircularProgressIndicator()
+        } else {
+            Button(
+                onClick = { authViewModel.login(email, password) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Iniciar Sesión")
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            
+            // BOTÓN DE GOOGLE
+            OutlinedButton(
+                onClick = { /* Lógica de Google */ },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(id = R.drawable.google), 
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text("Continuar con Google")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        TextButton(onClick = onNavigateToRegister) {
             Text(
-                text = "¿No tienes una cuenta? Regístrate",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 18.sp,
-                    textDecoration = TextDecoration.Underline
-                )
+                text = "¿No tienes cuenta? Regístrate",
+                textDecoration = TextDecoration.Underline,
+                fontSize = 16.sp
             )
         }
     }

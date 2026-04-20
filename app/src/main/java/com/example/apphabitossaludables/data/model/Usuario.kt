@@ -9,7 +9,10 @@ data class Usuario(
     var apellidos: String ="",
     var correo:String="",
     var contraseña:String="",
-    var fechaNacimiento: Date,
-
-
+    var fechaNacimiento: Date? = null,
+    var pesoKg: Double = 0.0,
+    var alturaCm: Int = 0,
+    var genero: String = "",
+    var objetivoPasos: Int = 10000,
+    var nivelActividad: String = "Moderado"
 )
