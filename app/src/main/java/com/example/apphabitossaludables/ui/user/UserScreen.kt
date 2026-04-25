@@ -11,7 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +30,9 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
-import com.google.firebase.auth.FirebaseAuth
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun UserScreen(
@@ -46,6 +49,7 @@ fun UserScreen(
 
     val permisosRequeridos = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
+        HealthPermission.getWritePermission(StepsRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getReadPermission(HydrationRecord::class),
@@ -68,6 +72,7 @@ fun UserScreen(
     }
 
     val pesoActual by viewModel.pesoActual.collectAsState()
+    val fechaSeleccionada by viewModel.fechaSeleccionada.collectAsState()
 
     LaunchedEffect(Unit) {
         val otorgados = healthConnectClient.permissionController.getGrantedPermissions()
@@ -84,7 +89,6 @@ fun UserScreen(
     val sueño by viewModel.sueño.collectAsState()
     val historial by viewModel.historialVitalidad.collectAsState()
 
-    // Cálculo del "Índice de Vitalidad" (0-100)
     val score = remember(actividad, nutricion, sueño) {
         val actScore = (actividad.pasos / 8000f).coerceIn(0f, 1f) * 40
         val sleepScore = ((sueño?.duracionTotalMinutos ?: 0) / 450f).coerceIn(0f, 1f) * 40
@@ -101,34 +105,65 @@ fun UserScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-    val userName by viewModel.userName.collectAsState()
+        val userName by viewModel.userName.collectAsState()
 
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Hola, $userName",
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
             )
-            IconButton(onClick = {
-                FirebaseAuth.getInstance().signOut()
-                onLogout()
-            }) {
-                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir", tint = Color.Gray)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { viewModel.cambiarFecha(-1) }) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Día anterior", tint = MaterialTheme.colorScheme.primary)
+            }
+            
+            val fechaTexto = when (fechaSeleccionada) {
+                LocalDate.now() -> "Hoy"
+                LocalDate.now().minusDays(1) -> "Ayer"
+                else -> fechaSeleccionada.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("es", "ES")))
+            }
+            
+            Text(
+                text = fechaTexto,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            IconButton(
+                onClick = { viewModel.cambiarFecha(1) },
+                enabled = fechaSeleccionada.isBefore(LocalDate.now())
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight, 
+                    contentDescription = "Día siguiente",
+                    tint = if (fechaSeleccionada.isBefore(LocalDate.now())) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Esfera Central de Puntuación
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(200.dp)
@@ -136,7 +171,7 @@ fun UserScreen(
             CircularProgressIndicator(
                 progress = { 1f },
                 modifier = Modifier.fillMaxSize(),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 strokeWidth = 12.dp,
             )
             CircularProgressIndicator(
@@ -147,8 +182,17 @@ fun UserScreen(
                 strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "$score", style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.ExtraBold)
-                Text(text = "Puntos", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
+                Text(
+                    text = "$score", 
+                    style = MaterialTheme.typography.displayLarge, 
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "Puntos", 
+                    style = MaterialTheme.typography.titleMedium, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
@@ -157,7 +201,7 @@ fun UserScreen(
             modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
-            color = Color.DarkGray
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         if (historial.isNotEmpty()) {
@@ -165,12 +209,13 @@ fun UserScreen(
                 "Historial de Vitalidad",
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
             )
             
             Card(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Row(
@@ -195,7 +240,8 @@ fun UserScreen(
                             Text(
                                 text = item.fecha.dayOfWeek.name.take(1),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.Gray
+                                color = if (item.fecha == fechaSeleccionada) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (item.fecha == fechaSeleccionada) FontWeight.Bold else FontWeight.Normal
                             )
                         }
                     }
@@ -203,7 +249,6 @@ fun UserScreen(
             }
         }
 
-        // Grid de accesos directos
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DashboardCard(
@@ -241,7 +286,6 @@ fun UserScreen(
                     onClick = onVitalsScreen
                 )
             }
-            // Botón de Medidas Corporales
             DashboardCard(
                 title = "Medidas Corporales",
                 subtitle = if (pesoActual > 0) "$pesoActual kg" else "Registrar peso",
@@ -269,7 +313,7 @@ fun DashboardCard(
         modifier = modifier
             .height(110.dp)
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -280,8 +324,8 @@ fun DashboardCard(
         ) {
             Icon(icon, contentDescription = null, tint = color)
             Column {
-                Text(text = title, style = MaterialTheme.typography.labelLarge, color = Color.Gray)
-                Text(text = subtitle, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text(text = title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = subtitle, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }

@@ -23,30 +23,46 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
     val nutricion by viewModel.nutricion.collectAsState()
+    val fechaSeleccionada by viewModel.fechaSeleccionada.collectAsState()
     val objetivoLitros = 2.5f
     val progreso = (nutricion.hidratacionLitros.toFloat() / objetivoLitros).coerceIn(0f, 1f)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Hidratación", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Column {
+                        Text("Hidratación", fontWeight = FontWeight.Bold)
+                        val subTexto = when (fechaSeleccionada) {
+                            LocalDate.now() -> "Hoy"
+                            LocalDate.now().minusDays(1) -> "Ayer"
+                            else -> fechaSeleccionada.format(DateTimeFormatter.ofPattern("d MMM, yyyy", Locale("es", "ES")))
+                        }
+                        Text(subTexto, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.eliminarUltimaAgua() }) {
-                        Icon(
-                            painter = painterResource(id = android.R.drawable.ic_menu_revert),
-                            contentDescription = "Deshacer último",
-                            tint = Color.Red
-                        )
+                    if (fechaSeleccionada == LocalDate.now()) {
+                        IconButton(onClick = { viewModel.eliminarUltimaAgua() }) {
+                            Icon(
+                                painter = painterResource(id = android.R.drawable.ic_menu_revert),
+                                contentDescription = "Deshacer último",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             )
@@ -56,7 +72,7 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFF0F7FF)),
+                .background(MaterialTheme.colorScheme.background),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
@@ -70,12 +86,12 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 text = String.format("%.1f L", nutricion.hidratacionLitros),
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF0288D1)
+                color = MaterialTheme.colorScheme.primary
             )
             Text(
                 text = "Objetivo: $objetivoLitros L",
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -93,18 +109,19 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             
             Card(
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.LocalDrink, contentDescription = null, tint = Color(0xFF03A9F4))
+                    Icon(Icons.Default.LocalDrink, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
                         "Beber agua mejora tu concentración y energía diaria.",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -125,10 +142,14 @@ fun WaterGlass(progreso: Float) {
         )
     )
 
+    val glassBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+    val waterColorPrimary = MaterialTheme.colorScheme.primary
+    val waterColorSecondary = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+
     Box(
         modifier = Modifier
             .size(width = 150.dp, height = 220.dp)
-            .background(Color.White.copy(alpha = 0.5f), RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp, topStart = 10.dp, topEnd = 10.dp))
+            .background(glassBorderColor, RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp, topStart = 10.dp, topEnd = 10.dp))
             .padding(8.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
@@ -156,7 +177,7 @@ fun WaterGlass(progreso: Float) {
                 drawPath(
                     path = path,
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color(0xFF4FC3F7), Color(0xFF0288D1))
+                        colors = listOf(waterColorSecondary, waterColorPrimary)
                     )
                 )
             }
@@ -169,13 +190,13 @@ fun WaterButton(label: String, iconSuffix: String, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         LargeFloatingActionButton(
             onClick = onClick,
-            containerColor = Color.White,
-            contentColor = Color(0xFF03A9F4),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             shape = CircleShape
         ) {
             Icon(Icons.Default.Add, contentDescription = null)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
     }
 }

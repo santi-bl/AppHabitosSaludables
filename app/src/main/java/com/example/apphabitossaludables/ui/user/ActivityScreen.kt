@@ -24,18 +24,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
     val actividad by viewModel.actividad.collectAsState()
+    val fechaSeleccionada by viewModel.fechaSeleccionada.collectAsState()
     val objetivoPasos = 10000f
     val progreso = (actividad.pasos / objetivoPasos).coerceIn(0f, 1f)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Actividad Física", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Column {
+                        Text("Actividad Física", fontWeight = FontWeight.Bold)
+                        val subTexto = when (fechaSeleccionada) {
+                            LocalDate.now() -> "Hoy"
+                            LocalDate.now().minusDays(1) -> "Ayer"
+                            else -> fechaSeleccionada.format(DateTimeFormatter.ofPattern("d MMM, yyyy", Locale("es", "ES")))
+                        }
+                        Text(subTexto, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -130,11 +144,12 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(Modifier.padding(20.dp)) {
-                    Text("Análisis de hoy", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    val tituloAnalisis = if (fechaSeleccionada == LocalDate.now()) "Análisis de hoy" else "Análisis del día"
+                    Text(tituloAnalisis, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        if (actividad.pasos > 7000) "¡Excelente ritmo! Estás manteniendo un estilo de vida activo."
-                        else "Has estado algo sedentario hoy. ¡Un paseo de 15 min te ayudaría!",
+                        if (actividad.pasos > 7000) "¡Excelente ritmo! Mantuviste un estilo de vida activo."
+                        else "Nivel de actividad bajo. ¡Recuerda caminar al menos 30 minutos al día!",
                         color = Color.DarkGray,
                         lineHeight = 20.sp
                     )

@@ -14,9 +14,9 @@ import java.time.temporal.ChronoUnit
 
 class HealthRepository(private val healthConnectClient: HealthConnectClient) {
 
-    suspend fun obtenerActividadFisica(): ActividadFisica {
-        val startOfDay = ZonedDateTime.now().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
-        val endOfDay = Instant.now()
+    suspend fun obtenerActividadFisica(fecha: LocalDate = LocalDate.now()): ActividadFisica {
+        val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = if (fecha == LocalDate.now()) Instant.now() else fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
         val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
         val pasos = try {
@@ -59,12 +59,25 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
         )
     }
 
+    suspend fun escribirPasos(cantidad: Long, inicio: Instant, fin: Instant) {
+        val record = StepsRecord(
+            startTime = inicio,
+            endTime = fin,
+            count = cantidad,
+            startZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(inicio),
+            endZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(fin)
+        )
+        try {
+            healthConnectClient.insertRecords(listOf(record))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     suspend fun obtenerVitalidadSemanal(): List<VitalidadSemanal> {
         val hoy = LocalDate.now()
         val lista = mutableListOf<VitalidadSemanal>()
         
-        // Simulación de cálculo para los últimos 7 días
-        // En una app real, aquí haríamos una petición por cada día
         for (i in 6 downTo 0) {
             val fecha = hoy.minusDays(i.toLong())
             val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
@@ -101,9 +114,9 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
         }
     }
 
-    suspend fun obtenerNutricion(): Nutricion {
-        val startOfDay = ZonedDateTime.now().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
-        val endOfDay = Instant.now()
+    suspend fun obtenerNutricion(fecha: LocalDate = LocalDate.now()): Nutricion {
+        val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = if (fecha == LocalDate.now()) Instant.now() else fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
         val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
         return try {
@@ -121,9 +134,9 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
         }
     }
 
-    suspend fun obtenerSignosVitales(): SignosVitales {
-        val startOfDay = ZonedDateTime.now().toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
-        val endOfDay = Instant.now()
+    suspend fun obtenerSignosVitales(fecha: LocalDate = LocalDate.now()): SignosVitales {
+        val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = if (fecha == LocalDate.now()) Instant.now() else fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
         val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
         return try {
@@ -164,15 +177,15 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
         }
     }
 
-    suspend fun leerSuenoDelDia(): Suenio? {
-        val inicio = Instant.now().minus(24, ChronoUnit.HOURS)
-        val fin = Instant.now()
+    suspend fun leerSuenoDelDia(fecha: LocalDate = LocalDate.now()): Suenio? {
+        val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
 
         return try {
             val response = healthConnectClient.readRecords(
                 ReadRecordsRequest(
                     recordType = SleepSessionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(inicio, fin)
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
                 )
             )
 

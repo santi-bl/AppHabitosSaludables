@@ -51,22 +51,19 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                // Primero intentamos crear el usuario en Auth
                 val result = auth.createUserWithEmailAndPassword(usuario.correo, usuario.contraseña).await()
                 val uid = result.user?.uid ?: ""
                 
-                // Actualizar el perfil de Firebase Auth con el nombre
                 val profileUpdates = com.google.firebase.auth.userProfileChangeRequest {
                     displayName = usuario.nombre
                 }
                 result.user?.updateProfile(profileUpdates)?.await()
                 
-                // Si Auth tiene éxito, guardamos en Firestore
-                db.collection("perfiles_detallados").document(usuario.correo).set(usuario.copy(id = uid)).await()
+                // USAMOS EL UID COMO CLAVE PRIMARIA (DOCUMENT ID)
+                db.collection("perfiles_detallados").document(uid).set(usuario.copy(id = uid)).await()
                 
                 _authState.value = AuthState.Success(uid)
             } catch (e: com.google.firebase.auth.FirebaseAuthUserCollisionException) {
-                // Si el usuario ya existe en Auth, intentamos loguearlo directamente
                 try {
                     val loginResult = auth.signInWithEmailAndPassword(usuario.correo, usuario.contraseña).await()
                     _authState.value = AuthState.Success(loginResult.user?.uid ?: "")
@@ -88,7 +85,7 @@ class AuthViewModel : ViewModel() {
             _authState.value = AuthState.Loading
             try {
                 auth.sendPasswordResetEmail(email).await()
-                _authState.value = AuthState.Idle // O un estado de éxito específico
+                _authState.value = AuthState.Idle
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(e.localizedMessage ?: "Error al enviar el email")
             }
@@ -103,17 +100,17 @@ class AuthViewModel : ViewModel() {
                 val result = auth.signInWithCredential(credential).await()
                 val user = result.user
                 if (user != null) {
-                    val email = user.email ?: ""
-                    val doc = db.collection("perfiles_detallados").document(email).get().await()
+                    val uid = user.uid
+                    val doc = db.collection("perfiles_detallados").document(uid).get().await()
                     if (!doc.exists()) {
                         val nuevoUsuario = Usuario(
-                            id = user.uid,
+                            id = uid,
                             nombre = user.displayName ?: "Usuario Google",
-                            correo = email
+                            correo = user.email ?: ""
                         )
-                        db.collection("perfiles_detallados").document(email).set(nuevoUsuario).await()
+                        db.collection("perfiles_detallados").document(uid).set(nuevoUsuario).await()
                     }
-                    _authState.value = AuthState.Success(user.uid)
+                    _authState.value = AuthState.Success(uid)
                 }
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(e.localizedMessage ?: "Error con Google")

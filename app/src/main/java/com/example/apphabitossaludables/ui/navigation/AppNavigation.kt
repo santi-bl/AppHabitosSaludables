@@ -1,24 +1,30 @@
 package com.example.apphabitossaludables.ui.navigation
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.health.connect.client.HealthConnectClient
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.apphabitossaludables.data.repository.HealthRepository
+import com.example.apphabitossaludables.data.repository.UserPreferencesRepository
 import com.example.apphabitossaludables.ui.auth.ForgotPasswordScreen
 import com.example.apphabitossaludables.ui.auth.LoginScreen
 import com.example.apphabitossaludables.ui.auth.RegisterScreen
-import com.example.apphabitossaludables.ui.user.ActivityScreen
-import com.example.apphabitossaludables.ui.user.DreamScreen
-import com.example.apphabitossaludables.ui.user.NutritionScreen
-import com.example.apphabitossaludables.ui.user.UserScreen
-import com.example.apphabitossaludables.ui.user.VitalsScreen
-import com.example.apphabitossaludables.ui.user.WeightScreen
+import com.example.apphabitossaludables.ui.settings.EditProfileScreen
+import com.example.apphabitossaludables.ui.settings.PrivacyScreen
+import com.example.apphabitossaludables.ui.settings.UserSettingsScreen
+import com.example.apphabitossaludables.ui.user.*
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
@@ -28,75 +34,114 @@ fun AppNavigation() {
     val nav = rememberNavController()
     val context = LocalContext.current
     
-    // Comprobar si hay una sesión activa
     val currentUser = remember { FirebaseAuth.getInstance().currentUser }
-    val startDest = if (currentUser != null) "user" else "login"
+    val startDest = if (currentUser != null) "main_content" else "login"
     
-    // Compartimos el repositorio y el viewModel entre las pantallas de salud
     val healthConnectClient = remember { HealthConnectClient.getOrCreate(context) }
-    val repository = remember { HealthRepository(healthConnectClient) }
+    val healthRepository = remember { HealthRepository(healthConnectClient) }
+    val preferencesRepository = remember { UserPreferencesRepository(context) }
+    
     val healthViewModel: AppHabitusViewModel = viewModel(
-        factory = AppHabitusViewModelFactory(repository)
+        factory = AppHabitusViewModelFactory(healthRepository, preferencesRepository)
     )
 
     NavHost(navController = nav, startDestination = startDest) {
         composable("login") {
             LoginScreen(
-                onLogin = { username ->
-                    nav.navigate("user") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                },
+                onLogin = { nav.navigate("main_content") { popUpTo("login") { inclusive = true } } },
                 onNavigateToRegister = { nav.navigate("register") },
                 onNavigateToForgotPassword = { nav.navigate("forgot_password") }
+            )
+        }
+        composable("register") {
+            RegisterScreen(
+                onRegisterLogin = { userId, weight ->
+                    if (weight > 0) healthViewModel.guardarPeso(weight)
+                    nav.navigate("main_content") { popUpTo("register") { inclusive = true } }
+                }
             )
         }
         composable("forgot_password") {
             ForgotPasswordScreen(onBack = { nav.popBackStack() })
         }
-        composable("register") {
-            RegisterScreen(
-                onRegisterLogin = { userId ->
-                    nav.navigate("user") {
-                        popUpTo("register") { inclusive = true }
-                    }
-                }
-            )
+        
+        composable("main_content") {
+            MainContainer(healthViewModel, nav)
         }
-        composable("user") {
-            // Cada vez que entramos a la pantalla de usuario, refrescamos el perfil
-            LaunchedEffect(Unit) {
-                healthViewModel.fetchUserProfile()
-            }
 
-            UserScreen(
-                viewModel = healthViewModel,
-                onLogout = {
-                    nav.navigate("login") {
-                        popUpTo("user") { inclusive = true }
-                    }
-                },
-                onFoodScreen = { nav.navigate("food") },
-                onExerciseScreen = { nav.navigate("exercise") },
-                onDreamScreen = { nav.navigate("dream") },
-                onVitalsScreen = { nav.navigate("vitals") },
-                onWeightScreen = { nav.navigate("weight") }
-            )
+        // Pantallas de detalle
+        composable("weight") { WeightScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
+        composable("exercise") { ActivityScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
+        composable("dream") { DreamScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
+        composable("food") { NutritionScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
+        composable("vitals") { VitalsScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
+        composable("edit_profile") { EditProfileScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
+        composable("privacy") { PrivacyScreen(onBack = { nav.popBackStack() }) }
+    }
+}
+
+@Composable
+fun MainContainer(viewModel: AppHabitusViewModel, rootNav: androidx.navigation.NavController) {
+    val internalNav = rememberNavController()
+    
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val navBackStackEntry by internalNav.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+                
+                val items = listOf(
+                    NavigationItem("user", "Inicio", Icons.Default.Home),
+                    NavigationItem("settings", "Ajustes", Icons.Default.Settings)
+                )
+                
+                items.forEach { item ->
+                    NavigationBarItem(
+                        icon = { Icon(item.icon, contentDescription = item.label) },
+                        label = { Text(item.label) },
+                        selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
+                        onClick = {
+                            internalNav.navigate(item.route) {
+                                popUpTo(internalNav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
+            }
         }
-        composable("weight") {
-            WeightScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() })
-        }
-        composable("exercise") {
-            ActivityScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() })
-        }
-        composable("dream") {
-            DreamScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() })
-        }
-        composable("food") {
-            NutritionScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() })
-        }
-        composable("vitals") {
-            VitalsScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() })
+    ) { padding ->
+        NavHost(
+            navController = internalNav,
+            startDestination = "user",
+            modifier = Modifier.padding(padding)
+        ) {
+            composable("user") {
+                LaunchedEffect(Unit) {
+                    viewModel.fetchUserProfile()
+                    viewModel.cargarDatosDelDia()
+                }
+                UserScreen(
+                    viewModel = viewModel,
+                    onLogout = { rootNav.navigate("login") { popUpTo("main_content") { inclusive = true } } },
+                    onFoodScreen = { rootNav.navigate("food") },
+                    onExerciseScreen = { rootNav.navigate("exercise") },
+                    onDreamScreen = { rootNav.navigate("dream") },
+                    onVitalsScreen = { rootNav.navigate("vitals") },
+                    onWeightScreen = { rootNav.navigate("weight") }
+                )
+            }
+            composable("settings") {
+                UserSettingsScreen(
+                    viewModel = viewModel,
+                    onLogout = { rootNav.navigate("login") { popUpTo("main_content") { inclusive = true } } },
+                    onEditProfile = { rootNav.navigate("edit_profile") },
+                    onPrivacy = { rootNav.navigate("privacy") }
+                )
+            }
         }
     }
 }
+
+data class NavigationItem(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)

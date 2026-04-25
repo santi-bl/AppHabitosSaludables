@@ -27,7 +27,7 @@ import com.example.apphabitossaludables.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
+fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
 
@@ -43,8 +43,10 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
     val scrollState = rememberScrollState()
 
     LaunchedEffect(authState) {
-        if (authState is AuthViewModel.AuthState.Success) {
-            onRegisterLogin((authState as AuthViewModel.AuthState.Success).userId)
+        val state = authState
+        if (state is AuthViewModel.AuthState.Success) {
+            val weightValue = peso.toDoubleOrNull() ?: 0.0
+            onRegisterLogin(state.userId, weightValue)
         }
     }
 
@@ -53,7 +55,7 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shadowElevation = 8.dp,
-                color = Color.White
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Box(modifier = Modifier.padding(24.dp)) {
                     if (authState is AuthViewModel.AuthState.Loading) {
@@ -89,7 +91,7 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(scrollState)
                 .padding(paddingValues)
                 .padding(horizontal = 24.dp),
@@ -105,20 +107,21 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
             Text(
                 text = "Tu Perfil de Salud",
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
             )
             
             Text(
                 text = "Completa tus datos para personalizar tu experiencia",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
             if (authState is AuthViewModel.AuthState.Error) {
                 Text(
                     text = (authState as AuthViewModel.AuthState.Error).message,
-                    color = Color.Red,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
             }
@@ -131,7 +134,11 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                 label = { Text("Nombre") },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                )
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -140,7 +147,11 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                 label = { Text("Apellidos") },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                )
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -150,7 +161,11 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                )
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -160,7 +175,11 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 visualTransformation = PasswordVisualTransformation(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                )
             )
 
             Spacer(Modifier.height(24.dp))
@@ -174,7 +193,11 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                     label = { Text("Peso (kg)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
                 OutlinedTextField(
                     value = altura,
@@ -182,13 +205,17 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                     label = { Text("Altura (cm)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
             }
             
             Spacer(Modifier.height(16.dp))
             
-            Text("Género", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelLarge)
+            Text("Género", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onBackground)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Hombre", "Mujer", "Otro").forEach { option ->
                     FilterChip(
@@ -219,7 +246,11 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                     label = { Text("Nivel de Actividad") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
                 ExposedDropdownMenu(
                     expanded = expanded,
@@ -237,7 +268,7 @@ fun RegisterScreen(onRegisterLogin: (String) -> Unit) {
                 }
             }
 
-            Spacer(Modifier.height(120.dp)) // Espacio para que el botón flotante no tape el contenido
+            Spacer(Modifier.height(120.dp))
         }
     }
 }

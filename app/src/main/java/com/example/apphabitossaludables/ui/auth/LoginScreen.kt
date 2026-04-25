@@ -1,6 +1,7 @@
 package com.example.apphabitossaludables.ui.auth
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -39,6 +40,7 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -53,13 +55,14 @@ fun LoginScreen(
             text = "BIENVENIDO",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
         if (authState is AuthViewModel.AuthState.Error) {
             Text(
                 text = (authState as AuthViewModel.AuthState.Error).message,
-                color = Color.Red,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
         }
@@ -69,7 +72,13 @@ fun LoginScreen(
             onValueChange = { email = it },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         )
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
@@ -78,12 +87,18 @@ fun LoginScreen(
             label = { Text("Contraseña") },
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         )
         
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             TextButton(onClick = onNavigateToForgotPassword) {
-                Text("¿Olvidaste tu contraseña?", fontSize = 14.sp)
+                Text("¿Olvidaste tu contraseña?", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
             }
         }
 
@@ -107,7 +122,7 @@ fun LoginScreen(
                 onClick = { /* Lógica de Google */ },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onBackground)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(
@@ -126,7 +141,8 @@ fun LoginScreen(
             Text(
                 text = "¿No tienes cuenta? Regístrate",
                 textDecoration = TextDecoration.Underline,
-                fontSize = 16.sp
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
