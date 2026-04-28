@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description ViewModel responsable de la lógica de autenticación. Gestiona el registro,
+ * inicio de sesión y recuperación de contraseña utilizando Firebase Auth y Firestore.
+ */
 package com.example.apphabitossaludables.viewmodel
 
 import androidx.lifecycle.ViewModel

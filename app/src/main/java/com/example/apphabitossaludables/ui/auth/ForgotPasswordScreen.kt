@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla para la recuperación de contraseña. Permite al usuario solicitar
+ * un correo electrónico de restablecimiento a través de Firebase Auth.
+ */
 package com.example.apphabitossaludables.ui.auth
 
 import androidx.compose.foundation.Image

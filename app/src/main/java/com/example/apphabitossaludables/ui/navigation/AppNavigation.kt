@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Gestiona el flujo de navegación de toda la aplicación, incluyendo
+ * la autenticación, el contenedor principal con navegación inferior y las pantallas de detalle.
+ */
 package com.example.apphabitossaludables.ui.navigation
 
 import androidx.compose.foundation.layout.padding

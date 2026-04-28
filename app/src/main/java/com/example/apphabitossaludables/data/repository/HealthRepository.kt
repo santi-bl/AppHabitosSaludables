@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Repositorio encargado de la comunicación directa con la API de Health Connect.
+ * Implementa la lectura y escritura de pasos, peso, hidratación, sueño y otros datos biométricos.
+ */
 package com.example.apphabitossaludables.data.repository
 
 import androidx.health.connect.client.HealthConnectClient
@@ -50,10 +55,13 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
             }
         } catch (e: Exception) { emptyList() }
 
+        val minutosActivos = listaSesiones.sumOf { it.duracionMinutos }
+
         return ActividadFisica(
             pasos = pasos,
             caloriasQuemadas = calorias,
             distanciaMetros = distancia,
+            minutosActivos = minutosActivos,
             sesionesEjercicio = listaSesiones,
             ultimaActualizacion = Instant.now()
         )
@@ -123,14 +131,42 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
             val hidratacionResponse = healthConnectClient.readRecords(
                 ReadRecordsRequest(HydrationRecord::class, timeRange)
             )
+            val nutricionResponse = healthConnectClient.readRecords(
+                ReadRecordsRequest(NutritionRecord::class, timeRange)
+            )
 
             Nutricion(
                 hidratacionLitros = hidratacionResponse.records.sumOf { it.volume.inLiters },
+                caloriasConsumidas = nutricionResponse.records.sumOf { it.energy?.inKilocalories ?: 0.0 },
+                proteinasGramos = nutricionResponse.records.sumOf { it.protein?.inGrams ?: 0.0 },
+                carbohidratosGramos = nutricionResponse.records.sumOf { it.totalCarbohydrate?.inGrams ?: 0.0 },
+                grasasGramos = nutricionResponse.records.sumOf { it.totalFat?.inGrams ?: 0.0 },
                 fecha = Instant.now()
             )
         } catch (e: Exception) {
             println("Error leyendo nutricion: ${e.message}")
             Nutricion()
+        }
+    }
+
+    suspend fun agregarComida(calorias: Double, proteinas: Double, carbohidratos: Double, grasas: Double) {
+        val inicio = Instant.now().minusSeconds(60)
+        val fin = Instant.now()
+        val record = NutritionRecord(
+            startTime = inicio,
+            endTime = fin,
+            energy = androidx.health.connect.client.units.Energy.kilocalories(calorias),
+            protein = androidx.health.connect.client.units.Mass.grams(proteinas),
+            totalCarbohydrate = androidx.health.connect.client.units.Mass.grams(carbohidratos),
+            totalFat = androidx.health.connect.client.units.Mass.grams(grasas),
+            startZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now()),
+            endZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now())
+        )
+        try {
+            healthConnectClient.insertRecords(listOf(record))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw e
         }
     }
 

@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de registro de nuevos usuarios. Recopila información básica
+ * y perfil físico inicial para personalizar los objetivos de salud en la plataforma.
+ */
 package com.example.apphabitossaludables.ui.auth
 
 import androidx.compose.foundation.Image

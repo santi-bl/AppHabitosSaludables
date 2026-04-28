@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de edición de perfil. Permite al usuario actualizar sus datos
+ * personales y físicos, sincronizando los cambios con Firebase Firestore.
+ */
 package com.example.apphabitossaludables.ui.settings
 
 import androidx.compose.foundation.background

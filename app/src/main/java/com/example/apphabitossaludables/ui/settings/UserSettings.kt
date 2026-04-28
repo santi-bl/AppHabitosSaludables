@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de ajustes de usuario. Permite gestionar preferencias como
+ * el modo oscuro, las notificaciones, acceder a la privacidad y cerrar sesión.
+ */
 package com.example.apphabitossaludables.ui.settings
 
 import androidx.compose.foundation.background

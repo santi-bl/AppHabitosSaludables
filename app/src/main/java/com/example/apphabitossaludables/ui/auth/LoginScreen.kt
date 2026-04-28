@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de inicio de sesión. Permite a los usuarios acceder a su cuenta
+ * mediante correo y contraseña o a través de Google.
+ */
 package com.example.apphabitossaludables.ui.auth
 
 import androidx.compose.foundation.Image

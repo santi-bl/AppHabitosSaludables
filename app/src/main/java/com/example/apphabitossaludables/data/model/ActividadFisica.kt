@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Modelo de datos que encapsula la actividad física diaria del usuario,
+ * incluyendo pasos, calorías, distancia y detalle de sesiones de ejercicio.
+ */
 package com.example.apphabitossaludables.data.model
 
 import java.time.Instant

@@ -1,3 +1,9 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla principal de usuario (Dashboard). Muestra un resumen visual
+ * del estado de salud diario, incluyendo puntuación de vitalidad, historial semanal
+ * y accesos directos a las diferentes métricas de salud.
+ */
 package com.example.apphabitossaludables.ui.user
 
 import android.widget.Toast

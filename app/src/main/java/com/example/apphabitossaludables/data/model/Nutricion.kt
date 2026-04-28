@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Modelo de datos para el seguimiento nutricional, incluyendo
+ * hidratación, calorías y desglose de macronutrientes (proteínas, carbohidratos, grasas).
+ */
 package com.example.apphabitossaludables.data.model
 
 import java.time.Instant

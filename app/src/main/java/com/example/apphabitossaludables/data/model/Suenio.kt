@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Modelo de datos que representa una sesión de sueño, detallando
+ * la duración total y el desglose por etapas (profundo, ligero, REM, etc.).
+ */
 package com.example.apphabitossaludables.data.model
 
 import com.google.firebase.firestore.Exclude

@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de detalle del sueño. Visualiza la duración total del descanso
+ * y el desglose temporal de las diferentes etapas del sueño capturadas por Health Connect.
+ */
 package com.example.apphabitossaludables.ui.user
 
 import androidx.compose.foundation.background

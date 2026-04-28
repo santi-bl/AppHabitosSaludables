@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de monitorización de signos vitales. Muestra gráficamente
+ * las pulsaciones por hora y estadísticas de ritmo cardíaco capturadas.
+ */
 package com.example.apphabitossaludables.ui.user
 
 import androidx.compose.foundation.background

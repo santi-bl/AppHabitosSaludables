@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de control de peso. Permite al usuario registrar su peso actual,
+ * visualizar un historial de mediciones y una gráfica de progreso temporal.
+ */
 package com.example.apphabitossaludables.ui.user
 
 import androidx.compose.foundation.Canvas

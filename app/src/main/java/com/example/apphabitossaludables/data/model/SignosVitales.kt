@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Modelo de datos que registra los signos vitales del usuario,
+ * centrándose principalmente en la frecuencia cardíaca y sus variaciones diarias.
+ */
 package com.example.apphabitossaludables.data.model
 
 import java.time.Instant

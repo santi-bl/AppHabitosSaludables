@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Punto de entrada principal de la aplicación. Gestiona los permisos de usuario
+ * y la inicialización de los servicios base y la navegación.
+ */
 package com.example.apphabitossaludables
 
 import android.Manifest

@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description ViewModel principal que coordina la lógica de negocio, la interacción con Health Connect
+ * y la sincronización en tiempo real con Firebase Firestore.
+ */
 package com.example.apphabitossaludables.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -83,6 +88,7 @@ class AppHabitusViewModel(
         viewModelScope.launch {
             _pesoActual.value = repository.obtenerPesoActual()
             _historialPeso.value = repository.obtenerHistorialPeso()
+            cargarDatosDelDia()
         }
     }
 
@@ -95,11 +101,10 @@ class AppHabitusViewModel(
     }
 
     fun updateProfile(usuario: Usuario) {
-        val email = auth.currentUser?.email?.lowercase() ?: return
-        val uid = auth.currentUser?.uid ?: ""
+        val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
             try {
-                db.collection("perfiles_detallados").document(email).set(usuario.copy(id = uid, correo = email)).await()
+                db.collection("perfiles_detallados").document(uid).set(usuario.copy(id = uid)).await()
                 fetchUserProfile()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -109,16 +114,23 @@ class AppHabitusViewModel(
 
     fun agregarAgua(litros: Double) {
         viewModelScope.launch {
-            repository.agregarHidratacion(litros)
-            if (_fechaSeleccionada.value == LocalDate.now()) {
-                val nutricionActual = _nutricion.value
-                val nuevaNutricion = nutricionActual.copy(
-                    hidratacionLitros = nutricionActual.hidratacionLitros + litros
-                )
-                _nutricion.value = nuevaNutricion
-                sincronizarDatosConFirebase(_actividad.value, nuevaNutricion, _signosVitales.value, _sueño.value, LocalDate.now())
+            try {
+                repository.agregarHidratacion(litros)
+                cargarDatosDelDia()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            cargarDatosDelDia()
+        }
+    }
+
+    fun agregarComida(calorias: Double, proteinas: Double, carbohidratos: Double, grasas: Double) {
+        viewModelScope.launch {
+            try {
+                repository.agregarComida(calorias, proteinas, carbohidratos, grasas)
+                cargarDatosDelDia()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -131,19 +143,23 @@ class AppHabitusViewModel(
 
     fun guardarPeso(kg: Double) {
         viewModelScope.launch {
-            repository.agregarPeso(kg)
-            _pesoActual.value = kg
-            _historialPeso.value = repository.obtenerHistorialPeso()
-            val email = auth.currentUser?.email?.lowercase() ?: return@launch
-            db.collection("perfiles_detallados").document(email).update("pesoKg", kg)
+            try {
+                repository.agregarPeso(kg)
+                _pesoActual.value = kg
+                _historialPeso.value = repository.obtenerHistorialPeso()
+                val uid = auth.currentUser?.uid ?: return@launch
+                db.collection("perfiles_detallados").document(uid).update("pesoKg", kg)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
     fun fetchUserProfile() {
-        val email = auth.currentUser?.email?.lowercase() ?: return
+        val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
             try {
-                val document = db.collection("perfiles_detallados").document(email).get().await()
+                val document = db.collection("perfiles_detallados").document(uid).get().await()
                 val usuario = document.toObject(Usuario::class.java)
                 usuario?.let {
                     _userName.value = it.nombre
@@ -170,7 +186,6 @@ class AppHabitusViewModel(
             _sueño.value = nuevoSueno
             _historialVitalidad.value = nuevoHistorial
 
-            // Sincronizamos siempre con la colección de historial por fecha
             sincronizarDatosConFirebase(nuevaActividad, nuevaNutricion, nuevosSignos, nuevoSueno, fecha)
         }
     }
@@ -183,34 +198,44 @@ class AppHabitusViewModel(
         fecha: LocalDate
     ) {
         val uid = auth.currentUser?.uid ?: return
-        val email = auth.currentUser?.email?.lowercase() ?: ""
+        val email = auth.currentUser?.email ?: ""
         
+        // Cálculo del score de vitalidad para sincronizar
+        val objPasos = _userProfile.value?.objetivoPasos?.toFloat() ?: 10000f
+        val actScore = (act.pasos / objPasos).coerceIn(0f, 1f) * 40
+        val sleepScore = ((sue?.duracionTotalMinutos ?: 0) / 450f).coerceIn(0f, 1f) * 40
+        val nutScore = (nut.hidratacionLitros / 2.0).coerceIn(0.0, 1.0) * 20
+        val totalScore = (actScore + sleepScore + nutScore).toInt()
+
         val datosMap = hashMapOf(
             "userId" to uid,
             "email" to email,
             "fecha" to fecha.toString(),
             "pasos" to act.pasos,
-            "calorias" to act.caloriasQuemadas,
-            "distancia" to act.distanciaMetros,
-            "hidratacion" to nut.hidratacionLitros,
+            "minutosActivos" to act.minutosActivos,
+            "caloriasQuemadas" to act.caloriasQuemadas,
+            "distanciaMetros" to act.distanciaMetros,
+            "hidratacionLitros" to nut.hidratacionLitros,
+            "caloriasConsumidas" to nut.caloriasConsumidas,
+            "proteinasGramos" to nut.proteinasGramos,
+            "carbohidratosGramos" to nut.carbohidratosGramos,
+            "grasasGramos" to nut.grasasGramos,
             "frecuenciaCardiacaMedia" to sig.frecuenciaCardiacaMedia,
             "minutosSueno" to (sue?.duracionTotalMinutos ?: 0),
+            "puntuacionVitalidad" to totalScore,
             "ultimaActualizacion" to com.google.firebase.Timestamp.now()
         )
         
         try {
-            // Guardamos en la subcolección 'historial' dentro del documento del usuario (email)
-            // de esta forma tenemos un registro por cada día
             db.collection("datos_salud")
-                .document(email)
+                .document(uid)
                 .collection("historial")
                 .document(fecha.toString())
                 .set(datosMap)
                 .await()
                 
-            // También mantenemos un resumen en el documento principal para acceso rápido al "estado actual"
             if (fecha == LocalDate.now()) {
-                db.collection("datos_salud").document(email).set(datosMap).await()
+                db.collection("datos_salud").document(uid).set(datosMap).await()
             }
         } catch (e: Exception) {
             e.printStackTrace()

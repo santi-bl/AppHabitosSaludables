@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla de actividad física. Muestra el progreso de pasos diarios,
+ * calorías quemadas, distancia recorrida y un desglose de las sesiones de ejercicio.
+ */
 package com.example.apphabitossaludables.ui.user
 
 import androidx.compose.foundation.background
