@@ -2,6 +2,7 @@
  * @author Santiago Barandiarán Lasheras
  * @description ViewModel principal que coordina la lógica de negocio, la interacción con Health Connect
  * y la sincronización en tiempo real con Firebase Firestore.
+ * Gestiona el perfil del usuario, metas de salud y preferencias de interfaz.
  */
 package com.example.apphabitossaludables.viewmodel
 
@@ -34,9 +35,9 @@ class AppHabitusViewModel(
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
 
-    // Configuración persistente
-    val isDarkMode: StateFlow<Boolean> = preferencesRepository.isDarkModeFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    // Configuración persistente (Boolean? para permitir seguir el sistema por defecto)
+    val isDarkMode: StateFlow<Boolean?> = preferencesRepository.isDarkModeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val notificationsEnabled: StateFlow<Boolean> = preferencesRepository.notificationsEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -74,6 +75,9 @@ class AppHabitusViewModel(
     private val _userName = MutableStateFlow("Usuario")
     val userName: StateFlow<String> = _userName.asStateFlow()
 
+    private val _userFullName = MutableStateFlow("Usuario")
+    val userFullName: StateFlow<String> = _userFullName.asStateFlow()
+
     private val _userProfile = MutableStateFlow<Usuario?>(null)
     val userProfile: StateFlow<Usuario?> = _userProfile.asStateFlow()
 
@@ -88,7 +92,7 @@ class AppHabitusViewModel(
         viewModelScope.launch {
             _pesoActual.value = repository.obtenerPesoActual()
             _historialPeso.value = repository.obtenerHistorialPeso()
-            cargarDatosDelDia()
+            cargarDatosDelDiaInternal()
         }
     }
 
@@ -96,6 +100,13 @@ class AppHabitusViewModel(
         val nuevaFecha = _fechaSeleccionada.value.plusDays(dias)
         if (!nuevaFecha.isAfter(LocalDate.now())) {
             _fechaSeleccionada.value = nuevaFecha
+            cargarDatosDelDia()
+        }
+    }
+
+    fun seleccionarFecha(fecha: LocalDate) {
+        if (!fecha.isAfter(LocalDate.now())) {
+            _fechaSeleccionada.value = fecha
             cargarDatosDelDia()
         }
     }
@@ -116,18 +127,40 @@ class AppHabitusViewModel(
         viewModelScope.launch {
             try {
                 repository.agregarHidratacion(litros)
-                cargarDatosDelDia()
+                cargarDatosDelDiaInternal()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
-    fun agregarComida(calorias: Double, proteinas: Double, carbohidratos: Double, grasas: Double) {
+    fun eliminarAgua(id: String) {
         viewModelScope.launch {
             try {
-                repository.agregarComida(calorias, proteinas, carbohidratos, grasas)
-                cargarDatosDelDia()
+                repository.eliminarHidratacion(id)
+                cargarDatosDelDiaInternal()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun agregarComida(calorias: Double, proteinas: Double, carbohidratos: Double, grasas: Double, nombre: String = "Comida") {
+        viewModelScope.launch {
+            try {
+                repository.agregarComida(calorias, proteinas, carbohidratos, grasas, nombre)
+                cargarDatosDelDiaInternal()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun eliminarComida(id: String) {
+        viewModelScope.launch {
+            try {
+                repository.eliminarComida(id)
+                cargarDatosDelDiaInternal()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -136,8 +169,12 @@ class AppHabitusViewModel(
 
     fun eliminarUltimaAgua() {
         viewModelScope.launch {
-            repository.eliminarUltimaHidratacion()
-            cargarDatosDelDia()
+            try {
+                repository.eliminarUltimaHidratacion()
+                cargarDatosDelDiaInternal()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -163,6 +200,7 @@ class AppHabitusViewModel(
                 val usuario = document.toObject(Usuario::class.java)
                 usuario?.let {
                     _userName.value = it.nombre
+                    _userFullName.value = "${it.nombre} ${it.apellidos}"
                     _userProfile.value = it
                 }
             } catch (e: Exception) {
@@ -172,22 +210,26 @@ class AppHabitusViewModel(
     }
 
     fun cargarDatosDelDia() {
-        val fecha = _fechaSeleccionada.value
         viewModelScope.launch {
-            val nuevaActividad = repository.obtenerActividadFisica(fecha)
-            val nuevaNutricion = repository.obtenerNutricion(fecha)
-            val nuevosSignos = repository.obtenerSignosVitales(fecha)
-            val nuevoSueno = repository.leerSuenoDelDia(fecha)
-            val nuevoHistorial = repository.obtenerVitalidadSemanal()
-
-            _actividad.value = nuevaActividad
-            _nutricion.value = nuevaNutricion
-            _signosVitales.value = nuevosSignos
-            _sueño.value = nuevoSueno
-            _historialVitalidad.value = nuevoHistorial
-
-            sincronizarDatosConFirebase(nuevaActividad, nuevaNutricion, nuevosSignos, nuevoSueno, fecha)
+            cargarDatosDelDiaInternal()
         }
+    }
+
+    private suspend fun cargarDatosDelDiaInternal() {
+        val fecha = _fechaSeleccionada.value
+        val nuevaActividad = repository.obtenerActividadFisica(fecha)
+        val nuevaNutricion = repository.obtenerNutricion(fecha)
+        val nuevosSignos = repository.obtenerSignosVitales(fecha)
+        val nuevoSueno = repository.leerSuenoDelDia(fecha)
+        val nuevoHistorial = repository.obtenerVitalidadSemanal(fecha)
+
+        _actividad.value = nuevaActividad
+        _nutricion.value = nuevaNutricion
+        _signosVitales.value = nuevosSignos
+        _sueño.value = nuevoSueno
+        _historialVitalidad.value = nuevoHistorial
+
+        sincronizarDatosConFirebase(nuevaActividad, nuevaNutricion, nuevosSignos, nuevoSueno, fecha)
     }
 
     private suspend fun sincronizarDatosConFirebase(
@@ -200,7 +242,6 @@ class AppHabitusViewModel(
         val uid = auth.currentUser?.uid ?: return
         val email = auth.currentUser?.email ?: ""
         
-        // Cálculo del score de vitalidad para sincronizar
         val objPasos = _userProfile.value?.objetivoPasos?.toFloat() ?: 10000f
         val actScore = (act.pasos / objPasos).coerceIn(0f, 1f) * 40
         val sleepScore = ((sue?.duracionTotalMinutos ?: 0) / 450f).coerceIn(0f, 1f) * 40

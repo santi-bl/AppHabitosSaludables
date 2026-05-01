@@ -1,7 +1,8 @@
 /**
  * @author Santiago Barandiarán Lasheras
  * @description Repositorio encargado de la comunicación directa con la API de Health Connect.
- * Implementa la lectura y escritura de pasos, peso, hidratación, sueño y otros datos biométricos.
+ * Implementa la lectura y escritura de pasos, peso, hidratación, sueño y nutrición.
+ * Soporta la gestión detallada de comidas e hidratación para su visualización y borrado.
  */
 package com.example.apphabitossaludables.data.repository
 
@@ -9,19 +10,21 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.health.connect.client.units.Energy
+import androidx.health.connect.client.units.Mass
+import androidx.health.connect.client.units.Volume
 import com.example.apphabitossaludables.data.model.*
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
 class HealthRepository(private val healthConnectClient: HealthConnectClient) {
 
     suspend fun obtenerActividadFisica(fecha: LocalDate = LocalDate.now()): ActividadFisica {
         val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
-        val endOfDay = if (fecha == LocalDate.now()) Instant.now() else fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
         val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
         val pasos = try {
@@ -72,8 +75,8 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
             startTime = inicio,
             endTime = fin,
             count = cantidad,
-            startZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(inicio),
-            endZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(fin)
+            startZoneOffset = ZoneId.systemDefault().rules.getOffset(inicio),
+            endZoneOffset = ZoneId.systemDefault().rules.getOffset(fin)
         )
         try {
             healthConnectClient.insertRecords(listOf(record))
@@ -82,12 +85,10 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
         }
     }
 
-    suspend fun obtenerVitalidadSemanal(): List<VitalidadSemanal> {
-        val hoy = LocalDate.now()
+    suspend fun obtenerVitalidadSemanal(fechaReferencia: LocalDate = LocalDate.now()): List<VitalidadSemanal> {
         val lista = mutableListOf<VitalidadSemanal>()
-        
         for (i in 6 downTo 0) {
-            val fecha = hoy.minusDays(i.toLong())
+            val fecha = fechaReferencia.minusDays(i.toLong())
             val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
             val endOfDay = fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
             val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
@@ -124,23 +125,53 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
 
     suspend fun obtenerNutricion(fecha: LocalDate = LocalDate.now()): Nutricion {
         val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
-        val endOfDay = if (fecha == LocalDate.now()) Instant.now() else fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
         val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
         return try {
-            val hidratacionResponse = healthConnectClient.readRecords(
+            val hidratacionRecords = healthConnectClient.readRecords(
                 ReadRecordsRequest(HydrationRecord::class, timeRange)
-            )
-            val nutricionResponse = healthConnectClient.readRecords(
+            ).records
+            
+            val nutricionRecords = healthConnectClient.readRecords(
                 ReadRecordsRequest(NutritionRecord::class, timeRange)
-            )
+            ).records
+
+            val listaComidas = nutricionRecords.map { record ->
+                val nombreComida = record.name ?: when(record.mealType) {
+                    1 -> "Desayuno"
+                    2 -> "Almuerzo"
+                    3 -> "Cena"
+                    4 -> "Snack"
+                    else -> "Comida"
+                }
+                Comida(
+                    id = record.metadata.id,
+                    nombre = nombreComida,
+                    calorias = record.energy?.inKilocalories ?: 0.0,
+                    proteinas = record.protein?.inGrams ?: 0.0,
+                    carbohidratos = record.totalCarbohydrate?.inGrams ?: 0.0,
+                    grasas = record.totalFat?.inGrams ?: 0.0,
+                    momento = record.startTime
+                )
+            }.sortedByDescending { it.momento }
+
+            val listaAgua = hidratacionRecords.map { record ->
+                RegistroAgua(
+                    id = record.metadata.id,
+                    cantidadLitros = record.volume.inLiters,
+                    momento = record.startTime
+                )
+            }.sortedByDescending { it.momento }
 
             Nutricion(
-                hidratacionLitros = hidratacionResponse.records.sumOf { it.volume.inLiters },
-                caloriasConsumidas = nutricionResponse.records.sumOf { it.energy?.inKilocalories ?: 0.0 },
-                proteinasGramos = nutricionResponse.records.sumOf { it.protein?.inGrams ?: 0.0 },
-                carbohidratosGramos = nutricionResponse.records.sumOf { it.totalCarbohydrate?.inGrams ?: 0.0 },
-                grasasGramos = nutricionResponse.records.sumOf { it.totalFat?.inGrams ?: 0.0 },
+                hidratacionLitros = hidratacionRecords.sumOf { it.volume.inLiters },
+                caloriasConsumidas = nutricionRecords.sumOf { it.energy?.inKilocalories ?: 0.0 },
+                proteinasGramos = nutricionRecords.sumOf { it.protein?.inGrams ?: 0.0 },
+                carbohidratosGramos = nutricionRecords.sumOf { it.totalCarbohydrate?.inGrams ?: 0.0 },
+                grasasGramos = nutricionRecords.sumOf { it.totalFat?.inGrams ?: 0.0 },
+                comidas = listaComidas,
+                registrosAgua = listaAgua,
                 fecha = Instant.now()
             )
         } catch (e: Exception) {
@@ -149,30 +180,46 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
         }
     }
 
-    suspend fun agregarComida(calorias: Double, proteinas: Double, carbohidratos: Double, grasas: Double) {
-        val inicio = Instant.now().minusSeconds(60)
-        val fin = Instant.now()
+    suspend fun agregarComida(calorias: Double, proteinas: Double, carbohidratos: Double, grasas: Double, nombre: String = "Comida") {
+        val ahora = Instant.now()
+        val tipoComida = when (nombre.lowercase()) {
+            "desayuno" -> 1
+            "almuerzo", "comida" -> 2
+            "cena" -> 3
+            "snack" -> 4
+            else -> 0
+        }
+
         val record = NutritionRecord(
-            startTime = inicio,
-            endTime = fin,
-            energy = androidx.health.connect.client.units.Energy.kilocalories(calorias),
-            protein = androidx.health.connect.client.units.Mass.grams(proteinas),
-            totalCarbohydrate = androidx.health.connect.client.units.Mass.grams(carbohidratos),
-            totalFat = androidx.health.connect.client.units.Mass.grams(grasas),
-            startZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now()),
-            endZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now())
+            startTime = ahora.minusSeconds(1),
+            endTime = ahora,
+            energy = Energy.kilocalories(calorias),
+            protein = Mass.grams(proteinas),
+            totalCarbohydrate = Mass.grams(carbohidratos),
+            totalFat = Mass.grams(grasas),
+            mealType = tipoComida,
+            name = nombre,
+            startZoneOffset = ZoneId.systemDefault().rules.getOffset(ahora),
+            endZoneOffset = ZoneId.systemDefault().rules.getOffset(ahora)
         )
+        healthConnectClient.insertRecords(listOf(record))
+    }
+
+    suspend fun eliminarComida(id: String) {
         try {
-            healthConnectClient.insertRecords(listOf(record))
+            healthConnectClient.deleteRecords(
+                recordType = NutritionRecord::class,
+                recordIdsList = listOf(id),
+                clientRecordIdsList = emptyList()
+            )
         } catch (e: Exception) {
             e.printStackTrace()
-            throw e
         }
     }
 
     suspend fun obtenerSignosVitales(fecha: LocalDate = LocalDate.now()): SignosVitales {
         val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
-        val endOfDay = if (fecha == LocalDate.now()) Instant.now() else fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val endOfDay = fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
         val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
         return try {
@@ -187,7 +234,6 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
             for (registro in pulsacionesResponse.records) {
                 val hora = registro.startTime.atZone(ZoneId.systemDefault()).hour
                 if (!porHora.containsKey(hora)) porHora[hora] = mutableListOf()
-                
                 for (muestra in registro.samples) {
                     sumaPulsacionesTotal += muestra.beatsPerMinute
                     totalMuestrasTotal++
@@ -208,7 +254,6 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
                 fecha = Instant.now()
             )
         } catch (e: Exception) {
-            println("Error leyendo signos vitales: ${e.message}")
             SignosVitales()
         }
     }
@@ -216,18 +261,12 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
     suspend fun leerSuenoDelDia(fecha: LocalDate = LocalDate.now()): Suenio? {
         val startOfDay = fecha.atStartOfDay(ZoneId.systemDefault()).toInstant()
         val endOfDay = fecha.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
-
         return try {
             val response = healthConnectClient.readRecords(
-                ReadRecordsRequest(
-                    recordType = SleepSessionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                )
+                ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(startOfDay, endOfDay))
             )
-
             if (response.records.isEmpty()) return null
             val sesion = response.records.last()
-
             val etapas = mutableMapOf<String, Long>()
             sesion.stages.forEach { etapa ->
                 val nombreEtapa = when (etapa.stage) {
@@ -240,88 +279,71 @@ class HealthRepository(private val healthConnectClient: HealthConnectClient) {
                 val min = ChronoUnit.MINUTES.between(etapa.startTime, etapa.endTime)
                 etapas[nombreEtapa] = (etapas[nombreEtapa] ?: 0L) + min
             }
-
             Suenio(
                 duracionTotalMinutos = ChronoUnit.MINUTES.between(sesion.startTime, sesion.endTime),
                 horaInicio = sesion.startTime,
                 horaFin = sesion.endTime,
                 etapas = etapas
             )
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     suspend fun agregarHidratacion(litros: Double) {
-        val inicio = Instant.now().minusSeconds(60)
-        val fin = Instant.now()
+        val ahora = Instant.now()
+        val zoneOffset = ZoneId.systemDefault().rules.getOffset(ahora)
         val record = HydrationRecord(
-            startTime = inicio,
-            endTime = fin,
-            volume = androidx.health.connect.client.units.Volume.liters(litros),
-            startZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now()),
-            endZoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now())
+            startTime = ahora.minusSeconds(10),
+            endTime = ahora,
+            volume = Volume.liters(litros),
+            startZoneOffset = zoneOffset,
+            endZoneOffset = zoneOffset
         )
+        healthConnectClient.insertRecords(listOf(record))
+    }
+
+    suspend fun eliminarHidratacion(id: String) {
         try {
-            healthConnectClient.insertRecords(listOf(record))
+            healthConnectClient.deleteRecords(
+                recordType = HydrationRecord::class,
+                recordIdsList = listOf(id),
+                clientRecordIdsList = emptyList()
+            )
         } catch (e: Exception) {
             e.printStackTrace()
-            throw e
         }
     }
 
     suspend fun eliminarUltimaHidratacion() {
-        val hoy = Instant.now().truncatedTo(ChronoUnit.DAYS)
+        val hoy = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
         try {
             val response = healthConnectClient.readRecords(
-                ReadRecordsRequest(
-                    recordType = HydrationRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(hoy)
-                )
+                ReadRecordsRequest(HydrationRecord::class, TimeRangeFilter.after(hoy))
             )
             if (response.records.isNotEmpty()) {
-                val ultimo = response.records.last()
-                healthConnectClient.deleteRecords(
-                    recordType = HydrationRecord::class,
-                    recordIdsList = listOf(ultimo.metadata.id),
-                    clientRecordIdsList = emptyList()
-                )
+                healthConnectClient.deleteRecords(HydrationRecord::class, listOf(response.records.last().metadata.id), emptyList())
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
-    suspend fun obtenerPesoActual(): Double {
-        return obtenerHistorialPeso().lastOrNull()?.second ?: 0.0
-    }
+    suspend fun obtenerPesoActual(): Double = obtenerHistorialPeso().lastOrNull()?.second ?: 0.0
 
     suspend fun obtenerHistorialPeso(): List<Pair<Instant, Double>> {
         val inicio = Instant.now().minus(90, ChronoUnit.DAYS)
-        try {
+        return try {
             val response = healthConnectClient.readRecords(
-                ReadRecordsRequest(
-                    recordType = WeightRecord::class,
-                    timeRangeFilter = TimeRangeFilter.after(inicio)
-                )
+                ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.after(inicio))
             )
-            return response.records.map { it.time to it.weight.inKilograms }
-        } catch (e: Exception) {
-            return emptyList()
-        }
+            response.records.map { it.time to it.weight.inKilograms }
+        } catch (e: Exception) { emptyList() }
     }
 
     suspend fun agregarPeso(kg: Double) {
+        val ahora = Instant.now()
         val record = WeightRecord(
-            time = Instant.now(),
-            weight = androidx.health.connect.client.units.Mass.kilograms(kg),
-            zoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(Instant.now())
+            time = ahora,
+            weight = Mass.kilograms(kg),
+            zoneOffset = ZoneId.systemDefault().rules.getOffset(ahora)
         )
-        try {
-            healthConnectClient.insertRecords(listOf(record))
-        } catch (e: Exception) {
-            e.printStackTrace()
-            throw e
-        }
+        healthConnectClient.insertRecords(listOf(record))
     }
 }

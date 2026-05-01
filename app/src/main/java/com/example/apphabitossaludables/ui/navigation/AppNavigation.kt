@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -97,7 +98,7 @@ fun MainContainer(viewModel: AppHabitusViewModel, rootNav: androidx.navigation.N
                 
                 val items = listOf(
                     NavigationItem("user", "Inicio", Icons.Default.Home),
-                    NavigationItem("settings", "Ajustes", Icons.Default.Settings)
+                    NavigationItem("settings", "Cuenta", Icons.Default.Person)
                 )
                 
                 items.forEach { item ->

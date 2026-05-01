@@ -2,6 +2,7 @@
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de actividad física. Muestra el progreso de pasos diarios,
  * calorías quemadas, distancia recorrida y un desglose de las sesiones de ejercicio.
+ * Adaptada para soporte total de modo oscuro.
  */
 package com.example.apphabitossaludables.ui.user
 
@@ -52,7 +53,7 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                             LocalDate.now().minusDays(1) -> "Ayer"
                             else -> fechaSeleccionada.format(DateTimeFormatter.ofPattern("d MMM, yyyy", Locale("es", "ES")))
                         }
-                        Text(subTexto, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text(subTexto, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 navigationIcon = {
@@ -67,7 +68,7 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFF8F9FA))
+                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -81,7 +82,7 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 CircularProgressIndicator(
                     progress = { 1f },
                     modifier = Modifier.fillMaxSize(),
-                    color = Color.LightGray.copy(alpha = 0.3f),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     strokeWidth = 12.dp,
                     strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
                 )
@@ -104,12 +105,12 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                         text = "${actividad.pasos}",
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
                         text = "de ${objetivoPasos.toInt()} pasos",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -146,16 +147,17 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(20.dp)) {
                     val tituloAnalisis = if (fechaSeleccionada == LocalDate.now()) "Análisis de hoy" else "Análisis del día"
-                    Text(tituloAnalisis, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(tituloAnalisis, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         if (actividad.pasos > 7000) "¡Excelente ritmo! Mantuviste un estilo de vida activo."
                         else "Nivel de actividad bajo. ¡Recuerda caminar al menos 30 minutos al día!",
-                        color = Color.DarkGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 20.sp
                     )
                 }
@@ -166,13 +168,14 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     "Entrenamientos",
                     modifier = Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, bottom = 8.dp),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 
                 actividad.sesionesEjercicio.forEach { sesion ->
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -191,8 +194,8 @@ fun ActivityScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                             }
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
-                                Text(sesion.tipo, fontWeight = FontWeight.Bold)
-                                Text("${sesion.duracionMinutos} min", fontSize = 12.sp, color = Color.Gray)
+                                Text(sesion.tipo, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("${sesion.duracionMinutos} min", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -215,7 +218,7 @@ fun ActivityDetailCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -228,10 +231,10 @@ fun ActivityDetailCard(
                 Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(label, fontSize = 12.sp, color = Color.Gray)
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(" $unit", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 2.dp))
+                Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(" $unit", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
             }
         }
     }

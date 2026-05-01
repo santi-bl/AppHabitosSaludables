@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Habitus</string>
+    <!-- Reemplaza esto con tu Web Client ID de la consola de Firebase -> Autenticación -> Sign-in method -> Google -->
+    <string name="default_web_client_id">147283580089-rv511jdan78fjjrun631k7bpo8m1lij6.apps.googleusercontent.com</string>
 </resources>

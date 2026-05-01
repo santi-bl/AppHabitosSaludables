@@ -1,7 +1,8 @@
 /**
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de nutrición e hidratación. Permite el seguimiento del consumo
- * de agua mediante un vaso animado y el registro de alimentos (calorías y macronutrientes).
+ * de agua mediante un vaso animado y el registro detallado de alimentos. Incluye
+ * un listado de comidas del día con opción de edición y borrado.
  */
 package com.example.apphabitossaludables.ui.user
 
@@ -9,14 +10,16 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
@@ -32,10 +35,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.apphabitossaludables.data.model.Comida
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +53,12 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
     val progresoAgua = (nutricion.hidratacionLitros.toFloat() / objetivoLitros).coerceIn(0f, 1f)
     
     var showFoodDialog by remember { mutableStateOf(false) }
+    var editingComida by remember { mutableStateOf<Comida?>(null) }
+    
+    // Formateador que usa punto como decimal y muestra hasta 2 decimales solo si existen
+    val df = remember { 
+        DecimalFormat("0.##", DecimalFormatSymbols(Locale.US)) 
+    }
 
     Scaffold(
         topBar = {
@@ -82,7 +95,10 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
         floatingActionButton = {
             if (fechaSeleccionada == LocalDate.now()) {
                 ExtendedFloatingActionButton(
-                    onClick = { showFoodDialog = true },
+                    onClick = { 
+                        editingComida = null
+                        showFoodDialog = true 
+                    },
                     icon = { Icon(Icons.Default.Restaurant, contentDescription = null) },
                     text = { Text("Añadir Comida") },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -91,97 +107,143 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             }
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(MaterialTheme.colorScheme.background),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // Resumen de Calorías si hay datos
-            if (nutricion.caloriasConsumidas > 0) {
+                // Resumen de Macronutrientes con precisión decimal
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Resumen Nutricional", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("Resumen Diario", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             NutrientItem("Calorías", "${nutricion.caloriasConsumidas.toInt()}", "kcal")
-                            NutrientItem("Proteínas", "${nutricion.proteinasGramos.toInt()}", "g")
-                            NutrientItem("Carbo", "${nutricion.carbohidratosGramos.toInt()}", "g")
-                            NutrientItem("Grasas", "${nutricion.grasasGramos.toInt()}", "g")
+                            NutrientItem("Proteínas", df.format(nutricion.proteinasGramos), "g")
+                            NutrientItem("Carbo", df.format(nutricion.carbohidratosGramos), "g")
+                            NutrientItem("Grasas", df.format(nutricion.grasasGramos), "g")
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // Vaso de agua animado
-            WaterGlass(progresoAgua)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = String.format("%.1f L", nutricion.hidratacionLitros),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = "Objetivo de agua: $objetivoLitros L",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (fechaSeleccionada == LocalDate.now()) {
                 Spacer(modifier = Modifier.height(32.dp))
-                // Botones rápidos de agua
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    WaterButton("250ml", "+") { viewModel.agregarAgua(0.25) }
-                    WaterButton("500ml", "++") { viewModel.agregarAgua(0.5) }
-                }
             }
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.LocalDrink, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        "Beber agua mejora tu concentración y energía diaria.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+
+            item {
+                // Vaso de agua animado
+                WaterGlass(progresoAgua)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Cantidad exacta de agua
+                Text(
+                    text = "${df.format(nutricion.hidratacionLitros)} L",
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Objetivo de agua: $objetivoLitros L",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (fechaSeleccionada == LocalDate.now()) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        WaterButton("250ml", "+") { viewModel.agregarAgua(0.25) }
+                        WaterButton("500ml", "++") { viewModel.agregarAgua(0.5) }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Text(
+                    "Comidas del día",
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+
+            if (nutricion.comidas.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                        Text("No hay comidas registradas", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                items(nutricion.comidas) { comida ->
+                    MealRow(
+                        comida = comida,
+                        onEdit = {
+                            editingComida = comida
+                            showFoodDialog = true
+                        },
+                        onDelete = { viewModel.eliminarComida(comida.id) }
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(80.dp)) // Espacio para el FAB
         }
 
         if (showFoodDialog) {
-            AddFoodDialog(
+            AddEditFoodDialog(
+                comida = editingComida,
                 onDismiss = { showFoodDialog = false },
-                onConfirm = { cal, prot, carb, fat ->
-                    viewModel.agregarComida(cal, prot, carb, fat)
+                onConfirm = { cal, prot, carb, fat, nombre ->
+                    if (editingComida != null) {
+                        viewModel.eliminarComida(editingComida!!.id)
+                    }
+                    viewModel.agregarComida(cal, prot, carb, fat, nombre)
                     showFoodDialog = false
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun MealRow(comida: Comida, onEdit: () -> Unit, onDelete: () -> Unit) {
+    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+    
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(comida.nombre, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "${comida.calorias.toInt()} kcal • ${timeFormatter.format(comida.momento)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     }
 }
@@ -196,55 +258,62 @@ fun NutrientItem(label: String, value: String, unit: String) {
 }
 
 @Composable
-fun AddFoodDialog(onDismiss: () -> Unit, onConfirm: (Double, Double, Double, Double) -> Unit) {
-    var calorias by remember { mutableStateOf("") }
-    var proteinas by remember { mutableStateOf("") }
-    var carbohidratos by remember { mutableStateOf("") }
-    var grasas by remember { mutableStateOf("") }
+fun AddEditFoodDialog(comida: Comida?, onDismiss: () -> Unit, onConfirm: (Double, Double, Double, Double, String) -> Unit) {
+    var nombre by remember { mutableStateOf(comida?.nombre ?: "") }
+    var calorias by remember { mutableStateOf(comida?.calorias?.toString() ?: "") }
+    var proteinas by remember { mutableStateOf(comida?.proteinas?.toString() ?: "") }
+    var carbohidratos by remember { mutableStateOf(comida?.carbohidratos?.toString() ?: "") }
+    var grasas by remember { mutableStateOf(comida?.grasas?.toString() ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Registrar Alimento") },
+        title = { Text(if (comida == null) "Registrar Alimento" else "Editar Alimento") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre (ej. Desayuno)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 OutlinedTextField(
                     value = calorias,
                     onValueChange = { calorias = it },
                     label = { Text("Calorías (kcal)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = proteinas,
                     onValueChange = { proteinas = it },
                     label = { Text("Proteínas (g)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = carbohidratos,
                     onValueChange = { carbohidratos = it },
                     label = { Text("Carbohidratos (g)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = grasas,
                     onValueChange = { grasas = it },
                     label = { Text("Grasas (g)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             Button(onClick = {
-                val cal = calorias.toDoubleOrNull() ?: 0.0
-                val prot = proteinas.toDoubleOrNull() ?: 0.0
-                val carb = carbohidratos.toDoubleOrNull() ?: 0.0
-                val fat = grasas.toDoubleOrNull() ?: 0.0
-                if (cal > 0) onConfirm(cal, prot, carb, fat)
-            }) { Text("Añadir") }
+                val cal = calorias.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val prot = proteinas.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val carb = carbohidratos.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val fat = grasas.replace(',', '.').toDoubleOrNull() ?: 0.0
+                if (cal > 0 || nombre.isNotEmpty()) onConfirm(cal, prot, carb, fat, nombre.ifEmpty { "Comida" })
+            }) { Text(if (comida == null) "Añadir" else "Guardar") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancelar") }
@@ -285,7 +354,6 @@ fun WaterGlass(progreso: Float) {
                 lineTo(width, height)
                 lineTo(width, (height - waterHeight).coerceAtLeast(0f))
                 
-                // Efecto de onda
                 if (progreso > 0) {
                     for (x in width.toInt() downTo 0) {
                         val baseLine = height - waterHeight

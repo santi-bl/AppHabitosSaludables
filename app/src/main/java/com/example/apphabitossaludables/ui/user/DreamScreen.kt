@@ -2,6 +2,7 @@
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de detalle del sueño. Visualiza la duración total del descanso
  * y el desglose temporal de las diferentes etapas del sueño capturadas por Health Connect.
+ * Adaptada para soporte total de modo oscuro.
  */
 package com.example.apphabitossaludables.ui.user
 
@@ -51,17 +52,16 @@ fun DreamScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             sueño?.let { datos ->
-                // Formateo de tiempo total
                 val totalHoras = datos.duracionTotalMinutos / 60
                 val totalMinutos = datos.duracionTotalMinutos % 60
 
-                // Card principal de resumen
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -80,7 +80,7 @@ fun DreamScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
-                            Text("Tiempo Total", style = MaterialTheme.typography.labelLarge)
+                            Text("Tiempo Total", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
                             Text(
                                 text = buildString {
                                     if (totalHoras > 0) append("${totalHoras}h ")
@@ -98,10 +98,10 @@ fun DreamScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     text = "Detalles de las Etapas",
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
-                // Listado de etapas formateadas
                 datos.etapas.forEach { (nombre, mins) ->
                     val h = mins / 60
                     val m = mins % 60
@@ -116,6 +116,7 @@ fun DreamScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Row(
@@ -126,7 +127,7 @@ fun DreamScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(12.dp).background(colorEtapa, CircleShape))
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text(nombre, fontWeight = FontWeight.Medium)
+                                Text(nombre, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Text(
                                 text = buildString {
@@ -140,15 +141,14 @@ fun DreamScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     }
                 }
 
-                // Info adicional
                 Card(
                     modifier = Modifier.padding(top = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Los datos muestran la sesión de sueño más reciente detectada en las últimas 24 horas.", fontSize = 12.sp)
+                        Text("Los datos muestran la sesión de sueño más reciente detectada en las últimas 24 horas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 

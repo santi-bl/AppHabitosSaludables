@@ -2,6 +2,7 @@
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de control de peso. Permite al usuario registrar su peso actual,
  * visualizar un historial de mediciones y una gráfica de progreso temporal.
+ * Totalmente compatible con modo oscuro mediante el uso de MaterialTheme.
  */
 package com.example.apphabitossaludables.ui.user
 
@@ -55,7 +56,8 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     weightInput = if (pesoActual > 0) pesoActual.toString() else ""
                     showDialog = true 
                 },
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Registrar Peso")
             }
@@ -65,7 +67,7 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFF8F9FA))
+                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -73,8 +75,8 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             // Card de Peso Actual
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(4.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -87,14 +89,15 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Peso Actual", color = Color.Gray)
+                    Text("Peso Actual", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = if (pesoActual > 0) String.format("%.1f", pesoActual) else "--",
                             fontSize = 48.sp,
-                            fontWeight = FontWeight.Black
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text(" kg", fontSize = 20.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                        Text(" kg", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
                     }
                 }
             }
@@ -103,10 +106,11 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
 
             // Gráfica de progreso
             Text(
-                "Progreso (Últimos registros)",
+                "Progreso temporal",
                 modifier = Modifier.fillMaxWidth(),
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
             )
             
             Card(
@@ -114,13 +118,13 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     .fillMaxWidth()
                     .height(250.dp)
                     .padding(vertical = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 if (historial.size >= 2) {
                     WeightChart(historial)
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Registra al menos 2 pesos para ver la gráfica", color = Color.Gray)
+                        Text("Registra al menos 2 pesos para ver la gráfica", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -132,7 +136,8 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 "Historial Reciente",
                 modifier = Modifier.fillMaxWidth(),
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -145,14 +150,14 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(formatter.format(fecha), fontWeight = FontWeight.Medium)
+                        Text(formatter.format(fecha), fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                         Text("${String.format("%.1f", peso)} kg", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -199,6 +204,7 @@ fun WeightChart(datos: List<Pair<java.time.Instant, Double>>) {
     val range = (maxPeso - minPeso).coerceAtLeast(1f)
     
     val primaryColor = MaterialTheme.colorScheme.primary
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
     Canvas(
         modifier = Modifier
@@ -236,7 +242,7 @@ fun WeightChart(datos: List<Pair<java.time.Instant, Double>>) {
                 center = point
             )
             drawCircle(
-                color = Color.White,
+                color = onSurfaceColor,
                 radius = 3.dp.toPx(),
                 center = point
             )

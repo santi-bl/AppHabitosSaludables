@@ -2,6 +2,7 @@
  * @author Santiago Barandiarán Lasheras
  * @description Punto de entrada principal de la aplicación. Gestiona los permisos de usuario
  * y la inicialización de los servicios base y la navegación.
+ * Corregido para seguir el tema del sistema mientras se cargan las preferencias.
  */
 package com.example.apphabitossaludables
 
@@ -12,7 +13,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.health.connect.client.HealthConnectClient
@@ -38,12 +39,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Solicitar permisos necesarios para el contador de pasos
-        val permissionsToRequest = mutableListOf(Manifest.permission.ACTIVITY_RECOGNITION)
+        val permissionsToRequest = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
+        
+        if (permissionsToRequest.isNotEmpty()) {
+            requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
+        } else {
+            startStepCounterService()
+        }
 
         setContent {
             val healthConnectClient = HealthConnectClient.getOrCreate(this)
@@ -54,9 +62,10 @@ class MainActivity : ComponentActivity() {
                 factory = AppHabitusViewModelFactory(healthRepository, preferencesRepository)
             )
             
-            val isDarkMode by viewModel.isDarkMode.collectAsState()
+            val isDarkModePref by viewModel.isDarkMode.collectAsState()
+            val darkTheme = isDarkModePref ?: isSystemInDarkTheme()
 
-            AppHabitosTheme(darkTheme = isDarkMode) {
+            AppHabitosTheme(darkTheme = darkTheme) {
                 AppNavigation()
             }
         }
@@ -64,10 +73,6 @@ class MainActivity : ComponentActivity() {
 
     private fun startStepCounterService() {
         val intent = Intent(this, StepCounterService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
+        startForegroundService(intent)
     }
 }

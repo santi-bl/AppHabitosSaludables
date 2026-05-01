@@ -2,7 +2,7 @@
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla principal de usuario (Dashboard). Muestra un resumen visual
  * del estado de salud diario, incluyendo puntuación de vitalidad, historial semanal
- * y accesos directos a las diferentes métricas de salud.
+ * interactivo y accesos directos a las diferentes métricas de salud.
  */
 package com.example.apphabitossaludables.ui.user
 
@@ -39,6 +39,8 @@ import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 
 @Composable
 fun UserScreen(
@@ -52,6 +54,7 @@ fun UserScreen(
 ) {
     val context = LocalContext.current
     val healthConnectClient = remember { HealthConnectClient.getOrCreate(context) }
+    val df = remember { DecimalFormat("0.##", DecimalFormatSymbols(Locale.US)) }
 
     val permisosRequeridos = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
@@ -59,12 +62,14 @@ fun UserScreen(
         HealthPermission.getReadPermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getReadPermission(HydrationRecord::class),
+        HealthPermission.getWritePermission(HydrationRecord::class),
+        HealthPermission.getReadPermission(NutritionRecord::class),
+        HealthPermission.getWritePermission(NutritionRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(WeightRecord::class),
-        HealthPermission.getWritePermission(WeightRecord::class),
-        HealthPermission.getWritePermission(HydrationRecord::class)
+        HealthPermission.getWritePermission(WeightRecord::class)
     )
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
@@ -124,7 +129,7 @@ fun UserScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Hola, $userName",
+                text = "Hola $userName",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -212,7 +217,7 @@ fun UserScreen(
 
         if (historial.isNotEmpty()) {
             Text(
-                "Historial de Vitalidad",
+                "Historial de Vitalidad (7 días)",
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
@@ -230,24 +235,33 @@ fun UserScreen(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     historial.forEach { item ->
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val isSelected = item.fecha == fechaSeleccionada
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clickable { viewModel.seleccionarFecha(item.fecha) }
+                                .padding(4.dp)
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .width(12.dp)
-                                    .height((item.puntuacion.toFloat()).dp)
+                                    .width(16.dp)
+                                    .height((item.puntuacion.toFloat().coerceAtLeast(5f)).dp)
                                     .background(
                                         brush = Brush.verticalGradient(
-                                            listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                                            listOf(
+                                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                            )
                                         ),
                                         shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
                                     )
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = item.fecha.dayOfWeek.name.take(1),
+                                text = item.fecha.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, Locale("es", "ES")),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (item.fecha == fechaSeleccionada) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = if (item.fecha == fechaSeleccionada) FontWeight.Bold else FontWeight.Normal
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         }
                     }
@@ -277,7 +291,7 @@ fun UserScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DashboardCard(
                     title = "Nutrición",
-                    subtitle = "${nutricion.hidratacionLitros}L agua",
+                    subtitle = "${df.format(nutricion.hidratacionLitros)}L agua",
                     icon = Icons.Default.LocalDrink,
                     color = Color(0xFF26C6DA),
                     modifier = Modifier.weight(1f),
@@ -294,7 +308,7 @@ fun UserScreen(
             }
             DashboardCard(
                 title = "Medidas Corporales",
-                subtitle = if (pesoActual > 0) "$pesoActual kg" else "Registrar peso",
+                subtitle = if (pesoActual > 0) "${df.format(pesoActual)} kg" else "Registrar peso",
                 icon = Icons.Default.MonitorWeight,
                 color = Color(0xFF4DB6AC),
                 modifier = Modifier.fillMaxWidth(),

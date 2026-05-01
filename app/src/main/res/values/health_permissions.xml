@@ -6,10 +6,12 @@
         <item>android.permission.health.READ_SLEEP</item>
         <item>android.permission.health.READ_EXERCISE</item>
         <item>android.permission.health.READ_HYDRATION</item>
+        <item>android.permission.health.READ_NUTRITION</item>
         <item>android.permission.health.READ_ACTIVE_CALORIES_BURNED</item>
         <item>android.permission.health.READ_DISTANCE</item>
         <item>android.permission.health.READ_WEIGHT</item>
         <item>android.permission.health.WRITE_WEIGHT</item>
         <item>android.permission.health.WRITE_HYDRATION</item>
+        <item>android.permission.health.WRITE_NUTRITION</item>
     </array>
 </resources>

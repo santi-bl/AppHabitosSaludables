@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Define el tema visual de la aplicación Habitus, configurando
+ * las paletas de colores para los modos claro y oscuro siguiendo Material Design 3.
+ */
 package com.example.apphabitossaludables.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme

@@ -1,7 +1,8 @@
 /**
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de monitorización de signos vitales. Muestra gráficamente
- * las pulsaciones por hora y estadísticas de ritmo cardíaco capturadas.
+ * las pulsaciones por hora y estadísticas de ritmo cardíaco.
+ * Totalmente adaptada para modo oscuro y claro.
  */
 package com.example.apphabitossaludables.ui.user
 
@@ -33,7 +34,7 @@ fun VitalsScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("RITMO CARDÍACO", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                title = { Text("Ritmo Cardíaco", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -46,7 +47,7 @@ fun VitalsScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFF5F5F5))
+                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -59,16 +60,17 @@ fun VitalsScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     Text(
                         text = "${vitals.frecuenciaCardiacaMedia}",
                         style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = " Vez/min",
+                        text = " PPM",
                         modifier = Modifier.padding(bottom = 12.dp),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text("Hoy", color = Color.Gray, fontSize = 14.sp)
+                Text("Promedio diario", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             }
 
             // Área del Gráfico
@@ -81,10 +83,10 @@ fun VitalsScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 // Líneas de referencia horizontales
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
                     repeat(3) { index ->
-                        val valor = when(index) { 0 -> "110"; 1 -> "55"; else -> "0" }
+                        val valor = when(index) { 0 -> "150"; 1 -> "75"; else -> "0" }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray.copy(alpha = 0.5f))
-                            Text("  $valor", fontSize = 10.sp, color = Color.Gray)
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Text("  $valor", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -97,7 +99,7 @@ fun VitalsScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 ) {
                     for (hora in 0..23) {
                         val media = vitals.pulsacionesPorHora[hora] ?: 0L
-                        val alturaProporcional = (media.toFloat() / 150f).coerceIn(0.05f, 1f)
+                        val alturaProporcional = (media.toFloat() / 180f).coerceIn(0.05f, 1f)
                         
                         Box(
                             modifier = Modifier
@@ -105,7 +107,7 @@ fun VitalsScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                                 .fillMaxHeight(alturaProporcional)
                                 .background(
                                     brush = Brush.verticalGradient(
-                                        colors = listOf(Color(0xFFFF5252), Color(0xFFFF5252).copy(alpha = 0.1f))
+                                        colors = listOf(Color(0xFFFF5252), Color(0xFFFF5252).copy(alpha = 0.3f))
                                     ),
                                     shape = RoundedCornerShape(2.dp)
                                 )
@@ -119,26 +121,27 @@ fun VitalsScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("0:00", fontSize = 12.sp, color = Color.Gray)
-                Text("23:59", fontSize = 12.sp, color = Color.Gray)
+                Text("00:00", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("23:59", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tarjeta de Estadísticas (Estilo Zepp)
+            // Tarjeta de Estadísticas
             Card(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Estadísticas diarias", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Estadísticas diarias", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                     
                     StatRow("Ritmo cardíaco promedio", "${vitals.frecuenciaCardiacaMedia}")
                     StatRow("Ritmo cardíaco máximo", "${vitals.frecuenciaCardiacaMaxima}")
                     StatRow("Ritmo cardíaco mínimo", "${vitals.frecuenciaCardiacaMinima}")
                 }
             }
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -150,10 +153,10 @@ fun StatRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = Color.DarkGray)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text(" ppm", fontSize = 12.sp, color = Color.Gray)
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(" ppm", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

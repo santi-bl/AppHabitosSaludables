@@ -1,28 +1,44 @@
 /**
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de inicio de sesión. Permite a los usuarios acceder a su cuenta
- * mediante correo y contraseña o a través de Google.
+ * mediante correo y contraseña o a través de Google. Soporta el gestor de contraseñas.
  */
 package com.example.apphabitossaludables.ui.auth
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
 import com.example.apphabitossaludables.R
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.apphabitossaludables.viewmodel.AuthViewModel
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -32,6 +48,9 @@ fun LoginScreen(
 ) {
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -76,13 +95,16 @@ fun LoginScreen(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentType = ContentType.Username }, // Ayuda al Gestor de Claves
             shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) }
             )
         )
         Spacer(Modifier.height(12.dp))
@@ -90,14 +112,17 @@ fun LoginScreen(
             value = password,
             onValueChange = { password = it },
             label = { Text("Contraseña") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentType = ContentType.Password }, // Ayuda al Gestor de Claves
             visualTransformation = PasswordVisualTransformation(),
             shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { authViewModel.login(email, password) }
             )
         )
         
@@ -113,7 +138,10 @@ fun LoginScreen(
             CircularProgressIndicator()
         } else {
             Button(
-                onClick = { authViewModel.login(email, password) },
+                onClick = { 
+                    focusManager.clearFocus() // Ayuda a que el sistema detecte el fin de la edición
+                    authViewModel.login(email, password) 
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -122,9 +150,29 @@ fun LoginScreen(
             
             Spacer(Modifier.height(16.dp))
             
-            // BOTÓN DE GOOGLE
             OutlinedButton(
-                onClick = { /* Lógica de Google */ },
+                onClick = {
+                    coroutineScope.launch {
+                        try {
+                            val credentialManager = CredentialManager.create(context)
+                            val googleIdOption = GetGoogleIdOption.Builder()
+                                .setFilterByAuthorizedAccounts(false)
+                                .setServerClientId(context.getString(R.string.default_web_client_id))
+                                .setAutoSelectEnabled(false)
+                                .build()
+
+                            val request = GetCredentialRequest.Builder()
+                                .addCredentialOption(googleIdOption)
+                                .build()
+
+                            val result = credentialManager.getCredential(context, request)
+                            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+                            authViewModel.signInWithGoogle(googleIdTokenCredential.idToken)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Error Google: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onBackground)

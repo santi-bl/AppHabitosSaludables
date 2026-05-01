@@ -12,7 +12,20 @@
           "package_name": "com.example.apphabitossaludables"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "147283580089-ohmbhq83rh107if3d0qg2i522l3p1e92.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.apphabitossaludables",
+            "certificate_hash": "4c26c0fda60517b044f99a5dbfd2f46793d255b5"
+          }
+        },
+        {
+          "client_id": "147283580089-rv511jdan78fjjrun631k7bpo8m1lij6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDSvGlKDJkbIj-HU-6_9nsAM5NDrwJSsjo"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "147283580089-rv511jdan78fjjrun631k7bpo8m1lij6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

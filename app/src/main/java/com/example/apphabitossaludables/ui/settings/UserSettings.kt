@@ -2,6 +2,7 @@
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de ajustes de usuario. Permite gestionar preferencias como
  * el modo oscuro, las notificaciones, acceder a la privacidad y cerrar sesión.
+ * Muestra el nombre completo del usuario sincronizado desde su perfil.
  */
 package com.example.apphabitossaludables.ui.settings
 
@@ -16,7 +17,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,7 +32,7 @@ fun UserSettingsScreen(
     onEditProfile: () -> Unit,
     onPrivacy: () -> Unit
 ) {
-    val userName by viewModel.userName.collectAsState()
+    val userFullName by viewModel.userFullName.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     val auth = FirebaseAuth.getInstance()
@@ -46,7 +46,7 @@ fun UserSettingsScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            "Configuración",
+            "Cuenta",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(vertical = 24.dp),
@@ -71,14 +71,14 @@ fun UserSettingsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        userName.take(1).uppercase(),
+                        if (userFullName.isNotEmpty()) userFullName.take(1).uppercase() else "U",
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(userName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text(userFullName.ifEmpty { "Usuario" }, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text(email, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 }
                 Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -90,7 +90,7 @@ fun UserSettingsScreen(
         // Opciones
         SettingsItem(Icons.Default.Palette, "Modo Oscuro") {
             Switch(
-                checked = isDarkMode,
+                checked = isDarkMode ?: false,
                 onCheckedChange = { viewModel.toggleTheme(it) }
             )
         }

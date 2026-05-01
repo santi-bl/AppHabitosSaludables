@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Factoría para la creación del AppHabitusViewModel.
+ * Permite la inyección de dependencias (repositorios) en el ViewModel.
+ */
 package com.example.apphabitossaludables.viewmodel
 
 import androidx.lifecycle.ViewModel

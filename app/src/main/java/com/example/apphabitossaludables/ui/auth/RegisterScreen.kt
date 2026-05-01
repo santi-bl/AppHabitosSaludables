@@ -1,7 +1,8 @@
 /**
  * @author Santiago Barandiarán Lasheras
  * @description Pantalla de registro de nuevos usuarios. Recopila información básica
- * y perfil físico inicial para personalizar los objetivos de salud en la plataforma.
+ * y perfil físico inicial para personalizar los objetivos de salud.
+ * Incluye soporte para el gestor de contraseñas del sistema (Autofill).
  */
 package com.example.apphabitossaludables.ui.auth
 
@@ -10,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,9 +20,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -35,6 +43,7 @@ import com.example.apphabitossaludables.viewmodel.AuthViewModel
 fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
+    val focusManager = LocalFocusManager.current
 
     var name by remember { mutableStateOf("") }
     var lastname by remember { mutableStateOf("") }
@@ -50,7 +59,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
     LaunchedEffect(authState) {
         val state = authState
         if (state is AuthViewModel.AuthState.Success) {
-            val weightValue = peso.toDoubleOrNull() ?: 0.0
+            val weightValue = peso.replace(',', '.').toDoubleOrNull() ?: 0.0
             onRegisterLogin(state.userId, weightValue)
         }
     }
@@ -68,12 +77,13 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                     } else {
                         Button(
                             onClick = {
+                                focusManager.clearFocus() // Notifica al sistema que el autocompletado puede actuar
                                 val usuario = Usuario(
                                     nombre = name,
                                     apellidos = lastname,
                                     correo = email,
                                     contraseña = password,
-                                    pesoKg = peso.toDoubleOrNull() ?: 0.0,
+                                    pesoKg = peso.replace(',', '.').toDoubleOrNull() ?: 0.0,
                                     alturaCm = altura.toIntOrNull() ?: 0,
                                     genero = genero,
                                     nivelActividad = nivelActividad
@@ -131,90 +141,79 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                 )
             }
 
-            // SECCIÓN: CUENTA
             SectionTitle("Datos Personales")
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Nombre") },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Username },
+                leadingIcon = { Icon(Icons.Default.Person, null) },
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                )
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = lastname,
                 onValueChange = { lastname = it },
                 label = { Text("Apellidos") },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Username },
+                leadingIcon = { Icon(Icons.Default.Person, null) },
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                )
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
             )
             Spacer(Modifier.height(12.dp))
+            
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentType = ContentType.EmailAddress },
+                leadingIcon = { Icon(Icons.Default.Email, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                shape = RoundedCornerShape(12.dp)
             )
             Spacer(Modifier.height(12.dp))
+            
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("Contraseña") },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentType = ContentType.Password },
+                leadingIcon = { Icon(Icons.Default.Lock, null) },
                 visualTransformation = PasswordVisualTransformation(),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                )
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                shape = RoundedCornerShape(12.dp)
             )
 
             Spacer(Modifier.height(24.dp))
 
-            // SECCIÓN: PERFIL FÍSICO
             SectionTitle("Perfil Físico")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = peso,
-                    onValueChange = { if (it.all { char -> char.isDigit() || char == '.' }) peso = it },
+                    onValueChange = { if (it.all { char -> char.isDigit() || char == '.' || char == ',' }) peso = it },
                     label = { Text("Peso (kg)") },
                     modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                    shape = RoundedCornerShape(12.dp)
                 )
                 OutlinedTextField(
                     value = altura,
                     onValueChange = { if (it.all { char -> char.isDigit() }) altura = it },
                     label = { Text("Altura (cm)") },
                     modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
             
@@ -234,7 +233,6 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
 
             Spacer(Modifier.height(24.dp))
 
-            // SECCIÓN: OBJETIVOS
             SectionTitle("Actividad Diaria")
             val niveles = listOf("Sedentario", "Ligero", "Moderado", "Intenso")
             var expanded by remember { mutableStateOf(false) }
@@ -251,11 +249,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                     label = { Text("Nivel de Actividad") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                    )
+                    shape = RoundedCornerShape(12.dp)
                 )
                 ExposedDropdownMenu(
                     expanded = expanded,

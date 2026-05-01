@@ -1,3 +1,9 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Repositorio para la gestión de preferencias locales del usuario.
+ * Utiliza Jetpack DataStore para persistir configuraciones como el modo oscuro
+ * y el estado de las notificaciones. Soporta valores nulos para seguir el sistema.
+ */
 package com.example.apphabitossaludables.data.repository
 
 import android.content.Context
@@ -21,7 +27,7 @@ class UserPreferencesRepository(private val context: Context) {
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
     }
 
-    val isDarkModeFlow: Flow<Boolean> = context.dataStore.data
+    val isDarkModeFlow: Flow<Boolean?> = context.dataStore.data
         .catch { exception ->
             if (exception is IOException) {
                 emit(emptyPreferences())
@@ -30,7 +36,7 @@ class UserPreferencesRepository(private val context: Context) {
             }
         }
         .map { preferences ->
-            preferences[PreferencesKeys.DARK_MODE] ?: false
+            preferences[PreferencesKeys.DARK_MODE]
         }
 
     val notificationsEnabledFlow: Flow<Boolean> = context.dataStore.data

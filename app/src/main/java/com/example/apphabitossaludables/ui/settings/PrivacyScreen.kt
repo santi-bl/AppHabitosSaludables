@@ -1,3 +1,8 @@
+/**
+ * @author Santiago Barandiarán Lasheras
+ * @description Pantalla informativa sobre la política de privacidad. Detalla el uso,
+ * origen y almacenamiento de los datos de salud del usuario en la plataforma Habitus.
+ */
 package com.example.apphabitossaludables.ui.settings
 
 import androidx.compose.foundation.background
