@@ -18,10 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +51,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val webClientId = stringResource(R.string.default_web_client_id)
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -157,7 +158,7 @@ fun LoginScreen(
                             val credentialManager = CredentialManager.create(context)
                             val googleIdOption = GetGoogleIdOption.Builder()
                                 .setFilterByAuthorizedAccounts(false)
-                                .setServerClientId(context.getString(R.string.default_web_client_id))
+                                .setServerClientId(webClientId)
                                 .setAutoSelectEnabled(false)
                                 .build()
 

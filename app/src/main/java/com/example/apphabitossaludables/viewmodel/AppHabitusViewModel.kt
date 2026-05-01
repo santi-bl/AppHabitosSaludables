@@ -72,14 +72,17 @@ class AppHabitusViewModel(
     private val _historialVitalidad = MutableStateFlow<List<VitalidadSemanal>>(emptyList())
     val historialVitalidad: StateFlow<List<VitalidadSemanal>> = _historialVitalidad
 
-    private val _userName = MutableStateFlow("Usuario")
+    private val _userName = MutableStateFlow("...")
     val userName: StateFlow<String> = _userName.asStateFlow()
 
-    private val _userFullName = MutableStateFlow("Usuario")
+    private val _userFullName = MutableStateFlow("...")
     val userFullName: StateFlow<String> = _userFullName.asStateFlow()
 
     private val _userProfile = MutableStateFlow<Usuario?>(null)
     val userProfile: StateFlow<Usuario?> = _userProfile.asStateFlow()
+
+    private val _isProfileLoading = MutableStateFlow(true)
+    val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
     private val _pesoActual = MutableStateFlow(0.0)
     val pesoActual: StateFlow<Double> = _pesoActual
@@ -87,13 +90,27 @@ class AppHabitusViewModel(
     private val _historialPeso = MutableStateFlow<List<Pair<java.time.Instant, Double>>>(emptyList())
     val historialPeso: StateFlow<List<Pair<java.time.Instant, Double>>> = _historialPeso.asStateFlow()
 
+    // Listener para detectar cambios en la autenticación y disparar la carga del perfil
+    private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        if (firebaseAuth.currentUser != null) {
+            fetchUserProfile()
+        }
+    }
+
     init {
-        fetchUserProfile()
+        // Registramos el listener de sesión inmediatamente para capturar la sesión al abrir
+        auth.addAuthStateListener(authStateListener)
+        
         viewModelScope.launch {
             _pesoActual.value = repository.obtenerPesoActual()
             _historialPeso.value = repository.obtenerHistorialPeso()
             cargarDatosDelDiaInternal()
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        auth.removeAuthStateListener(authStateListener)
     }
 
     fun cambiarFecha(dias: Long) {
@@ -112,10 +129,11 @@ class AppHabitusViewModel(
     }
 
     fun updateProfile(usuario: Usuario) {
-        val uid = auth.currentUser?.uid ?: return
+        val email = auth.currentUser?.email?.lowercase()?.trim() ?: return
         viewModelScope.launch {
             try {
-                db.collection("perfiles_detallados").document(uid).set(usuario.copy(id = uid)).await()
+                // Sincronizamos usando el EMAIL como clave según la estructura vista
+                db.collection("perfiles_detallados").document(email).set(usuario.copy(correo = email)).await()
                 fetchUserProfile()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -184,27 +202,69 @@ class AppHabitusViewModel(
                 repository.agregarPeso(kg)
                 _pesoActual.value = kg
                 _historialPeso.value = repository.obtenerHistorialPeso()
-                val uid = auth.currentUser?.uid ?: return@launch
-                db.collection("perfiles_detallados").document(uid).update("pesoKg", kg)
+                val email = auth.currentUser?.email?.lowercase()?.trim() ?: return@launch
+                db.collection("perfiles_detallados").document(email).update("pesoKg", kg)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
+    /**
+     * Recupera el perfil del usuario buscando el documento por su EMAIL.
+     * Mantiene la información actual en pantalla y solo la sobreescribe
+     * si los datos obtenidos de Firebase son válidos y no están vacíos.
+     */
     fun fetchUserProfile() {
-        val uid = auth.currentUser?.uid ?: return
+        val currentUser = auth.currentUser ?: return
+        val email = currentUser.email?.lowercase()?.trim() ?: return
+        
         viewModelScope.launch {
+            _isProfileLoading.value = true
+            
             try {
-                val document = db.collection("perfiles_detallados").document(uid).get().await()
-                val usuario = document.toObject(Usuario::class.java)
-                usuario?.let {
-                    _userName.value = it.nombre
-                    _userFullName.value = "${it.nombre} ${it.apellidos}"
-                    _userProfile.value = it
+                // 1. Intentamos obtener el documento directamente por ID (Email)
+                var doc = db.collection("perfiles_detallados").document(email).get().await()
+                
+                // 2. Si no existe por ID, buscamos por el campo 'correo' (Fallback)
+                if (!doc.exists()) {
+                    val query = db.collection("perfiles_detallados")
+                        .whereEqualTo("correo", email)
+                        .get()
+                        .await()
+                    if (!query.isEmpty) doc = query.documents[0]
+                }
+
+                if (doc.exists()) {
+                    // Extraemos manualmente para asegurar que los nombres coinciden con Usuario.kt
+                    val nombre = doc.getString("nombre") ?: ""
+                    val apellidos = doc.getString("apellidos") ?: ""
+                    val nombreAMostrar = "$nombre $apellidos".trim()
+                    
+                    // Solo actualizamos si lo que obtenemos NO está vacío
+                    if (nombreAMostrar.isNotEmpty()) {
+                        _userName.value = nombreAMostrar
+                        _userFullName.value = nombreAMostrar
+                        _userProfile.value = doc.toObject(Usuario::class.java)
+                    } else if (_userName.value == "..." || _userName.value == "Usuario") {
+                        // Si está vacío en Firestore pero no teníamos nada antes, usamos Auth
+                        val authName = currentUser.displayName ?: "Usuario"
+                        _userName.value = authName
+                        _userFullName.value = authName
+                    }
+                } else if (_userName.value == "..." || _userName.value == "Usuario") {
+                    // Fallback inicial si no hay documento ni datos previos
+                    val authName = currentUser.displayName ?: "Usuario"
+                    _userName.value = authName
+                    _userFullName.value = authName
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                if (_userName.value == "..." || _userName.value == "Usuario") {
+                    _userName.value = currentUser.displayName ?: "Usuario"
+                }
+            } finally {
+                _isProfileLoading.value = false
             }
         }
     }

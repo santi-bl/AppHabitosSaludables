@@ -38,7 +38,7 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                val result = auth.signInWithEmailAndPassword(email, pass).await()
+                val result = auth.signInWithEmailAndPassword(email.lowercase().trim(), pass).await()
                 _authState.value = AuthState.Success(result.user?.uid ?: "")
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(e.localizedMessage ?: "Error al iniciar sesión")
@@ -56,7 +56,8 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                val result = auth.createUserWithEmailAndPassword(usuario.correo, usuario.contraseña).await()
+                val userEmail = usuario.correo.lowercase().trim()
+                val result = auth.createUserWithEmailAndPassword(userEmail, usuario.contraseña).await()
                 val uid = result.user?.uid ?: ""
                 
                 val profileUpdates = com.google.firebase.auth.userProfileChangeRequest {
@@ -64,13 +65,13 @@ class AuthViewModel : ViewModel() {
                 }
                 result.user?.updateProfile(profileUpdates)?.await()
                 
-                // USAMOS EL UID COMO CLAVE PRIMARIA (DOCUMENT ID)
-                db.collection("perfiles_detallados").document(uid).set(usuario.copy(id = uid)).await()
+                // USAMOS EL CORREO COMO CLAVE PRIMARIA (DOCUMENT ID) para coincidir con la base de datos
+                db.collection("perfiles_detallados").document(userEmail).set(usuario.copy(id = uid, correo = userEmail)).await()
                 
                 _authState.value = AuthState.Success(uid)
             } catch (e: com.google.firebase.auth.FirebaseAuthUserCollisionException) {
                 try {
-                    val loginResult = auth.signInWithEmailAndPassword(usuario.correo, usuario.contraseña).await()
+                    val loginResult = auth.signInWithEmailAndPassword(usuario.correo.lowercase().trim(), usuario.contraseña).await()
                     _authState.value = AuthState.Success(loginResult.user?.uid ?: "")
                 } catch (loginError: Exception) {
                     _authState.value = AuthState.Error("La cuenta ya existe y la contraseña es incorrecta.")
@@ -89,7 +90,7 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                auth.sendPasswordResetEmail(email).await()
+                auth.sendPasswordResetEmail(email.lowercase().trim()).await()
                 _authState.value = AuthState.Idle
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(e.localizedMessage ?: "Error al enviar el email")
@@ -105,17 +106,18 @@ class AuthViewModel : ViewModel() {
                 val result = auth.signInWithCredential(credential).await()
                 val user = result.user
                 if (user != null) {
-                    val uid = user.uid
-                    val doc = db.collection("perfiles_detallados").document(uid).get().await()
+                    val email = user.email?.lowercase()?.trim() ?: ""
+                    // Verificamos si existe por Email ID
+                    val doc = db.collection("perfiles_detallados").document(email).get().await()
                     if (!doc.exists()) {
                         val nuevoUsuario = Usuario(
-                            id = uid,
+                            id = user.uid,
                             nombre = user.displayName ?: "Usuario Google",
-                            correo = user.email ?: ""
+                            correo = email
                         )
-                        db.collection("perfiles_detallados").document(uid).set(nuevoUsuario).await()
+                        db.collection("perfiles_detallados").document(email).set(nuevoUsuario).await()
                     }
-                    _authState.value = AuthState.Success(uid)
+                    _authState.value = AuthState.Success(user.uid)
                 }
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(e.localizedMessage ?: "Error con Google")

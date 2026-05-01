@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,6 +36,8 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -53,6 +56,7 @@ fun UserScreen(
     onWeightScreen: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val healthConnectClient = remember { HealthConnectClient.getOrCreate(context) }
     val df = remember { DecimalFormat("0.##", DecimalFormatSymbols(Locale.US)) }
 
@@ -79,6 +83,21 @@ fun UserScreen(
             viewModel.cargarDatosDelDia()
         } else {
             Toast.makeText(context, "Faltan algunos permisos de salud", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Efecto para actualizar datos siempre que la pantalla vuelva a estar activa (OnResume)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Al volver de otra pantalla o segundo plano, refrescamos datos
+                viewModel.cargarDatosDelDia()
+                viewModel.fetchUserProfile()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -307,7 +326,7 @@ fun UserScreen(
                 )
             }
             DashboardCard(
-                title = "Medidas Corporales",
+                title = "Peso corporal",
                 subtitle = if (pesoActual > 0) "${df.format(pesoActual)} kg" else "Registrar peso",
                 icon = Icons.Default.MonitorWeight,
                 color = Color(0xFF4DB6AC),

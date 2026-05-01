@@ -7,6 +7,7 @@
 package com.example.apphabitossaludables.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,25 +89,31 @@ fun UserSettingsScreen(
         Spacer(Modifier.height(24.dp))
 
         // Opciones
-        SettingsItem(Icons.Default.Palette, "Modo Oscuro") {
+        SettingsItem(
+            icon = Icons.Default.Palette, 
+            title = "Modo Oscuro"
+        ) {
             Switch(
                 checked = isDarkMode ?: false,
                 onCheckedChange = { viewModel.toggleTheme(it) }
             )
         }
         
-        SettingsItem(Icons.Default.Notifications, "Notificaciones") {
+        SettingsItem(
+            icon = Icons.Default.Notifications, 
+            title = "Notificaciones"
+        ) {
             Switch(
                 checked = notificationsEnabled,
                 onCheckedChange = { viewModel.toggleNotifications(it) }
             )
         }
 
-        SettingsItem(Icons.Default.Security, "Privacidad") {
-            IconButton(onClick = onPrivacy) {
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        // El ítem de Privacidad ahora es todo un botón (el texto completo es clickable)
+        SettingsItem(
+            title = "Privacidad",
+            onClick = onPrivacy
+        )
 
         Spacer(Modifier.weight(1f))
 
@@ -132,9 +139,17 @@ fun UserSettingsScreen(
 }
 
 @Composable
-fun SettingsItem(icon: ImageVector, title: String, trailing: @Composable () -> Unit) {
+fun SettingsItem(
+    title: String, 
+    icon: ImageVector? = null,
+    onClick: (() -> Unit)? = null,
+    trailing: @Composable (() -> Unit)? = null
+) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -144,11 +159,18 @@ fun SettingsItem(icon: ImageVector, title: String, trailing: @Composable () -> U
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(16.dp))
-                Text(title, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                if (icon != null) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(16.dp))
+                }
+                Text(
+                    text = title, 
+                    fontWeight = FontWeight.Medium, 
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = if (icon == null && trailing == null) Modifier.fillMaxWidth() else Modifier
+                )
             }
-            trailing()
+            trailing?.invoke()
         }
     }
 }
