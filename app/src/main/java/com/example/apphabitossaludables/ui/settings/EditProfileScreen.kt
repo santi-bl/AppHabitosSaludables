@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,22 +37,25 @@ fun EditProfileScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
     var nombre by remember { mutableStateOf("") }
     var apellidos by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var edad by remember { mutableStateOf("") }
     var peso by remember { mutableStateOf("") }
     var altura by remember { mutableStateOf("") }
     var genero by remember { mutableStateOf("Hombre") }
     var nivelActividad by remember { mutableStateOf("Moderado") }
+    var objetivoPasos by remember { mutableStateOf("10000") }
 
     LaunchedEffect(userProfile) {
         userProfile?.let {
             nombre = it.nombre
             apellidos = it.apellidos
             email = it.correo
+            edad = if (it.edad > 0) it.edad.toString() else ""
             peso = if (it.pesoKg > 0) it.pesoKg.toString() else ""
             altura = if (it.alturaCm > 0) it.alturaCm.toString() else ""
             genero = if (it.genero.isNotEmpty()) it.genero else "Hombre"
             nivelActividad = if (it.nivelActividad.isNotEmpty()) it.nivelActividad else "Moderado"
+            objetivoPasos = it.objetivoPasos.toString()
         } ?: run {
-            // Si no hay perfil, intentamos obtener el correo del usuario actual de Auth
             email = FirebaseAuth.getInstance().currentUser?.email ?: ""
         }
     }
@@ -76,32 +80,36 @@ fun EditProfileScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 Box(modifier = Modifier.padding(24.dp)) {
                     Button(
                         onClick = {
-                            val pesoValue = peso.toDoubleOrNull() ?: 0.0
+                            val edadValue = edad.toIntOrNull() ?: 0
+                            val pesoValue = peso.replace(',', '.').toDoubleOrNull() ?: 0.0
                             val alturaValue = altura.toIntOrNull() ?: 0
+                            val pasosValue = objetivoPasos.toIntOrNull() ?: 10000
                             
-                            // Si el perfil existe lo copiamos y actualizamos, si no lo creamos desde cero
                             val updatedUser = userProfile?.copy(
                                 nombre = nombre,
                                 apellidos = apellidos,
+                                edad = edadValue,
                                 pesoKg = pesoValue,
                                 alturaCm = alturaValue,
                                 genero = genero,
-                                nivelActividad = nivelActividad
+                                nivelActividad = nivelActividad,
+                                objetivoPasos = pasosValue
                             ) ?: Usuario(
                                 id = FirebaseAuth.getInstance().currentUser?.uid ?: "",
                                 nombre = nombre,
                                 apellidos = apellidos,
                                 correo = email.ifEmpty { FirebaseAuth.getInstance().currentUser?.email ?: "" },
+                                edad = edadValue,
                                 pesoKg = pesoValue,
                                 alturaCm = alturaValue,
                                 genero = genero,
-                                nivelActividad = nivelActividad
+                                nivelActividad = nivelActividad,
+                                objetivoPasos = pasosValue
                             )
                             
                             viewModel.updateProfile(updatedUser)
                             
-                            // Si el peso ha cambiado, registrarlo en el historial
-                            if (pesoValue > 0 && pesoValue != userProfile?.pesoKg) {
+                            if (pesoValue > 0 && (userProfile == null || pesoValue != userProfile?.pesoKg)) {
                                 viewModel.guardarPeso(pesoValue)
                             }
                             
@@ -172,8 +180,16 @@ fun EditProfileScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
             EditSectionTitle("Perfil Físico")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
+                    value = edad,
+                    onValueChange = { if (it.all { char -> char.isDigit() }) edad = it },
+                    label = { Text("Edad") },
+                    modifier = Modifier.weight(0.7f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
                     value = peso,
-                    onValueChange = { if (it.all { char -> char.isDigit() || char == '.' }) peso = it },
+                    onValueChange = { if (it.all { char -> char.isDigit() || char == '.' || char == ',' }) peso = it },
                     label = { Text("Peso (kg)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -202,6 +218,19 @@ fun EditProfileScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     )
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            EditSectionTitle("Configuración de Objetivos")
+            OutlinedTextField(
+                value = objetivoPasos,
+                onValueChange = { if (it.all { char -> char.isDigit() }) objetivoPasos = it },
+                label = { Text("Objetivo de pasos diarios") },
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp)
+            )
 
             Spacer(Modifier.height(24.dp))
 

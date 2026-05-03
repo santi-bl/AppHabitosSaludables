@@ -47,9 +47,9 @@ class AuthViewModel : ViewModel() {
     }
 
     fun register(usuario: Usuario) {
-        if (usuario.nombre.isBlank() || usuario.correo.isBlank() || usuario.contraseña.isBlank() || 
-            usuario.pesoKg <= 0 || usuario.alturaCm <= 0) {
-            _authState.value = AuthState.Error("Todos los campos son obligatorios")
+        if (usuario.nombre.isBlank() || usuario.apellidos.isBlank() || usuario.correo.isBlank() || 
+            usuario.contraseña.isBlank() || usuario.pesoKg <= 0 || usuario.alturaCm <= 0 || usuario.edad <= 0) {
+            _authState.value = AuthState.Error("Todos los campos marcados con * son obligatorios")
             return
         }
 
@@ -60,8 +60,9 @@ class AuthViewModel : ViewModel() {
                 val result = auth.createUserWithEmailAndPassword(userEmail, usuario.contraseña).await()
                 val uid = result.user?.uid ?: ""
                 
+                // Actualizamos el nombre en Auth (apellidos los guardamos en Firestore)
                 val profileUpdates = com.google.firebase.auth.userProfileChangeRequest {
-                    displayName = usuario.nombre
+                    displayName = "${usuario.nombre} ${usuario.apellidos}".trim()
                 }
                 result.user?.updateProfile(profileUpdates)?.await()
                 
@@ -110,9 +111,11 @@ class AuthViewModel : ViewModel() {
                     // Verificamos si existe por Email ID
                     val doc = db.collection("perfiles_detallados").document(email).get().await()
                     if (!doc.exists()) {
+                        val names = user.displayName?.split(" ") ?: emptyList()
                         val nuevoUsuario = Usuario(
                             id = user.uid,
-                            nombre = user.displayName ?: "Usuario Google",
+                            nombre = names.getOrNull(0) ?: "Usuario",
+                            apellidos = names.drop(1).joinToString(" "),
                             correo = email
                         )
                         db.collection("perfiles_detallados").document(email).set(nuevoUsuario).await()

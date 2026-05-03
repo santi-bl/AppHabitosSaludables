@@ -15,6 +15,7 @@ data class Usuario(
     var correo:String="",
     var contraseña:String="",
     var fechaNacimiento: Date? = null,
+    var edad: Int = 0,
     var pesoKg: Double = 0.0,
     var alturaCm: Int = 0,
     var genero: String = "",

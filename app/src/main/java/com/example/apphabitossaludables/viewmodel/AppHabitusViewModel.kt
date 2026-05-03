@@ -6,6 +6,7 @@
  */
 package com.example.apphabitossaludables.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.apphabitossaludables.data.model.ActividadFisica
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -72,14 +74,22 @@ class AppHabitusViewModel(
     private val _historialVitalidad = MutableStateFlow<List<VitalidadSemanal>>(emptyList())
     val historialVitalidad: StateFlow<List<VitalidadSemanal>> = _historialVitalidad
 
-    private val _userName = MutableStateFlow("...")
-    val userName: StateFlow<String> = _userName.asStateFlow()
-
-    private val _userFullName = MutableStateFlow("...")
-    val userFullName: StateFlow<String> = _userFullName.asStateFlow()
-
     private val _userProfile = MutableStateFlow<Usuario?>(null)
     val userProfile: StateFlow<Usuario?> = _userProfile.asStateFlow()
+
+    // Propiedades reactivas derivadas del perfil del usuario
+    val userName: StateFlow<String> = userProfile
+        .map { usuario ->
+            usuario?.nombre?.ifBlank { null } ?: auth.currentUser?.displayName?.split(" ")?.firstOrNull() ?: "Usuario"
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "...")
+
+    val userFullName: StateFlow<String> = userProfile
+        .map { usuario ->
+            val completo = if (usuario != null) "${usuario.nombre} ${usuario.apellidos}".trim() else ""
+            completo.ifBlank { auth.currentUser?.displayName ?: "Usuario" }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "...")
 
     private val _isProfileLoading = MutableStateFlow(true)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
@@ -236,33 +246,14 @@ class AppHabitusViewModel(
                 }
 
                 if (doc.exists()) {
-                    // Extraemos manualmente para asegurar que los nombres coinciden con Usuario.kt
-                    val nombre = doc.getString("nombre") ?: ""
-                    val apellidos = doc.getString("apellidos") ?: ""
-                    val nombreAMostrar = "$nombre $apellidos".trim()
-                    
-                    // Solo actualizamos si lo que obtenemos NO está vacío
-                    if (nombreAMostrar.isNotEmpty()) {
-                        _userName.value = nombreAMostrar
-                        _userFullName.value = nombreAMostrar
-                        _userProfile.value = doc.toObject(Usuario::class.java)
-                    } else if (_userName.value == "..." || _userName.value == "Usuario") {
-                        // Si está vacío en Firestore pero no teníamos nada antes, usamos Auth
-                        val authName = currentUser.displayName ?: "Usuario"
-                        _userName.value = authName
-                        _userFullName.value = authName
+                    val usuario = doc.toObject(Usuario::class.java)
+                    if (usuario != null) {
+                        usuario.id = doc.id
+                        _userProfile.value = usuario
                     }
-                } else if (_userName.value == "..." || _userName.value == "Usuario") {
-                    // Fallback inicial si no hay documento ni datos previos
-                    val authName = currentUser.displayName ?: "Usuario"
-                    _userName.value = authName
-                    _userFullName.value = authName
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
-                if (_userName.value == "..." || _userName.value == "Usuario") {
-                    _userName.value = currentUser.displayName ?: "Usuario"
-                }
+                Log.e("AppHabitusViewModel", "Error fetching user profile", e)
             } finally {
                 _isProfileLoading.value = false
             }

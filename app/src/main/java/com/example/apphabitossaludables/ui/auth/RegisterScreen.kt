@@ -49,6 +49,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
     var lastname by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var edad by remember { mutableStateOf("") }
     var peso by remember { mutableStateOf("") }
     var altura by remember { mutableStateOf("") }
     var genero by remember { mutableStateOf("Hombre") }
@@ -77,12 +78,13 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                     } else {
                         Button(
                             onClick = {
-                                focusManager.clearFocus() // Notifica al sistema que el autocompletado puede actuar
+                                focusManager.clearFocus() 
                                 val usuario = Usuario(
                                     nombre = name,
                                     apellidos = lastname,
                                     correo = email,
                                     contraseña = password,
+                                    edad = edad.toIntOrNull() ?: 0,
                                     pesoKg = peso.replace(',', '.').toDoubleOrNull() ?: 0.0,
                                     alturaCm = altura.toIntOrNull() ?: 0,
                                     genero = genero,
@@ -145,7 +147,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Nombre") },
+                label = { Text("Nombre *") },
                 modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Username },
                 leadingIcon = { Icon(Icons.Default.Person, null) },
                 shape = RoundedCornerShape(12.dp),
@@ -156,7 +158,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
             OutlinedTextField(
                 value = lastname,
                 onValueChange = { lastname = it },
-                label = { Text("Apellidos") },
+                label = { Text("Apellidos *") },
                 modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Username },
                 leadingIcon = { Icon(Icons.Default.Person, null) },
                 shape = RoundedCornerShape(12.dp),
@@ -168,7 +170,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text("Email *") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentType = ContentType.EmailAddress },
@@ -182,7 +184,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Contraseña") },
+                label = { Text("Contraseña *") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentType = ContentType.Password },
@@ -198,9 +200,18 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
             SectionTitle("Perfil Físico")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
+                    value = edad,
+                    onValueChange = { if (it.all { char -> char.isDigit() }) edad = it },
+                    label = { Text("Edad *") },
+                    modifier = Modifier.weight(0.8f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
                     value = peso,
                     onValueChange = { if (it.all { char -> char.isDigit() || char == '.' || char == ',' }) peso = it },
-                    label = { Text("Peso (kg)") },
+                    label = { Text("Peso (kg) *") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
@@ -209,7 +220,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                 OutlinedTextField(
                     value = altura,
                     onValueChange = { if (it.all { char -> char.isDigit() }) altura = it },
-                    label = { Text("Altura (cm)") },
+                    label = { Text("Altura (cm) *") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
@@ -219,7 +230,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
             
             Spacer(Modifier.height(16.dp))
             
-            Text("Género", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onBackground)
+            Text("Género *", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onBackground)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Hombre", "Mujer", "Otro").forEach { option ->
                     FilterChip(
@@ -246,7 +257,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                     value = nivelActividad,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Nivel de Actividad") },
+                    label = { Text("Nivel de Actividad *") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)

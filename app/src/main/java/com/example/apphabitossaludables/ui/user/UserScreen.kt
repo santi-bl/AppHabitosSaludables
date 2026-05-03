@@ -140,7 +140,7 @@ fun UserScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val userName by viewModel.userName.collectAsState()
+        val userName by viewModel.userFullName.collectAsState()
 
         Row(
             Modifier.fillMaxWidth(),
