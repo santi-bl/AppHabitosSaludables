@@ -40,11 +40,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserScreen(
     viewModel: AppHabitusViewModel,
@@ -166,6 +169,40 @@ fun UserScreen(
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Día anterior", tint = MaterialTheme.colorScheme.primary)
             }
             
+            var showDatePicker by remember { mutableStateOf(false) }
+            
+            if (showDatePicker) {
+                val datePickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = fechaSeleccionada.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                    selectableDates = object : SelectableDates {
+                        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                            // No permitir fechas futuras
+                            return utcTimeMillis <= System.currentTimeMillis()
+                        }
+                    }
+                )
+
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let {
+                                val selectedDate = Instant.ofEpochMilli(it)
+                                    .atZone(ZoneId.systemDefault())
+                                    .toLocalDate()
+                                viewModel.seleccionarFecha(selectedDate)
+                            }
+                            showDatePicker = false
+                        }) { Text("Aceptar") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+
             val fechaTexto = when (fechaSeleccionada) {
                 LocalDate.now() -> "Hoy"
                 LocalDate.now().minusDays(1) -> "Ayer"
@@ -176,7 +213,9 @@ fun UserScreen(
                 text = fechaTexto,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .clickable { showDatePicker = true },
                 color = MaterialTheme.colorScheme.onBackground
             )
 
@@ -331,7 +370,8 @@ fun UserScreen(
                 icon = Icons.Default.MonitorWeight,
                 color = Color(0xFF4DB6AC),
                 modifier = Modifier.fillMaxWidth(),
-                onClick = onWeightScreen
+                onClick = onWeightScreen,
+                isCentered = true
             )
         }
 
@@ -346,6 +386,7 @@ fun DashboardCard(
     icon: ImageVector,
     color: Color,
     modifier: Modifier = Modifier,
+    isCentered: Boolean = false,
     onClick: () -> Unit
 ) {
     Card(
@@ -359,10 +400,11 @@ fun DashboardCard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = if (isCentered) Alignment.CenterHorizontally else Alignment.Start
         ) {
             Icon(icon, contentDescription = null, tint = color)
-            Column {
+            Column(horizontalAlignment = if (isCentered) Alignment.CenterHorizontally else Alignment.Start) {
                 Text(text = title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(text = subtitle, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             }

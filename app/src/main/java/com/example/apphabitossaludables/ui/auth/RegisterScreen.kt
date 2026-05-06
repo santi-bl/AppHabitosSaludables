@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentType
@@ -54,8 +53,14 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
     var altura by remember { mutableStateOf("") }
     var genero by remember { mutableStateOf("Hombre") }
     var nivelActividad by remember { mutableStateOf("Moderado") }
-    
+
     val scrollState = rememberScrollState()
+
+    // FIX: Limpiamos cualquier estado previo (ej. un Success de sesión anterior)
+    // para evitar que la pantalla navegue sola al montarse.
+    LaunchedEffect(Unit) {
+        authViewModel.resetState()
+    }
 
     LaunchedEffect(authState) {
         val state = authState
@@ -73,31 +78,35 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Box(modifier = Modifier.padding(24.dp)) {
-                    if (authState is AuthViewModel.AuthState.Loading) {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    } else {
-                        Button(
-                            onClick = {
-                                focusManager.clearFocus() 
-                                val usuario = Usuario(
-                                    nombre = name,
-                                    apellidos = lastname,
-                                    correo = email,
-                                    contraseña = password,
-                                    edad = edad.toIntOrNull() ?: 0,
-                                    pesoKg = peso.replace(',', '.').toDoubleOrNull() ?: 0.0,
-                                    alturaCm = altura.toIntOrNull() ?: 0,
-                                    genero = genero,
-                                    nivelActividad = nivelActividad
-                                )
-                                authViewModel.register(usuario)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            val usuario = Usuario(
+                                nombre = name,
+                                apellidos = lastname,
+                                correo = email,
+                                edad = edad.toIntOrNull() ?: 0,
+                                pesoKg = peso.replace(',', '.').toDoubleOrNull() ?: 0.0,
+                                alturaCm = altura.toIntOrNull() ?: 0,
+                                genero = genero,
+                                nivelActividad = nivelActividad
+                            )
+                            authViewModel.register(usuario, password)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        // Mostramos un indicador de carga mientras se procesa el registro
+                        if (authState is AuthViewModel.AuthState.Loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
                             Text("CREAR CUENTA", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -120,14 +129,14 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                 contentDescription = "Logo Habitus",
                 modifier = Modifier.size(80.dp)
             )
-            
+
             Text(
                 text = "Tu Perfil de Salud",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            
+
             Text(
                 text = "Completa tus datos para personalizar tu experiencia",
                 style = MaterialTheme.typography.bodyMedium,
@@ -166,7 +175,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                 keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
             )
             Spacer(Modifier.height(12.dp))
-            
+
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -180,7 +189,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                 shape = RoundedCornerShape(12.dp)
             )
             Spacer(Modifier.height(12.dp))
-            
+
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -227,9 +236,9 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
                     shape = RoundedCornerShape(12.dp)
                 )
             }
-            
+
             Spacer(Modifier.height(16.dp))
-            
+
             Text("Género *", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onBackground)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Hombre", "Mujer", "Otro").forEach { option ->
@@ -247,7 +256,7 @@ fun RegisterScreen(onRegisterLogin: (String, Double) -> Unit) {
             SectionTitle("Actividad Diaria")
             val niveles = listOf("Sedentario", "Ligero", "Moderado", "Intenso")
             var expanded by remember { mutableStateOf(false) }
-            
+
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded },

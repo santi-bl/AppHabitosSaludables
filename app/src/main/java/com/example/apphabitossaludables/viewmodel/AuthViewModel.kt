@@ -8,7 +8,12 @@ package com.example.apphabitossaludables.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.apphabitossaludables.data.model.Usuario
+import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,15 +46,20 @@ class AuthViewModel : ViewModel() {
                 val result = auth.signInWithEmailAndPassword(email.lowercase().trim(), pass).await()
                 _authState.value = AuthState.Success(result.user?.uid ?: "")
             } catch (e: Exception) {
-                _authState.value = AuthState.Error(e.localizedMessage ?: "Error al iniciar sesión")
+                _authState.value = AuthState.Error(handleAuthError(e))
             }
         }
     }
 
-    fun register(usuario: Usuario) {
-        if (usuario.nombre.isBlank() || usuario.apellidos.isBlank() || usuario.correo.isBlank() || 
-            usuario.contraseña.isBlank() || usuario.pesoKg <= 0 || usuario.alturaCm <= 0 || usuario.edad <= 0) {
+    fun register(usuario: Usuario, pass: String) {
+        if (usuario.nombre.isBlank() || usuario.apellidos.isBlank() || usuario.correo.isBlank() ||
+            pass.isBlank() || usuario.pesoKg <= 0 || usuario.alturaCm <= 0 || usuario.edad <= 0) {
             _authState.value = AuthState.Error("Todos los campos marcados con * son obligatorios")
+            return
+        }
+
+        if (pass.length < 6) {
+            _authState.value = AuthState.Error("La contraseña debe tener al menos 6 caracteres")
             return
         }
 
@@ -57,28 +67,49 @@ class AuthViewModel : ViewModel() {
             _authState.value = AuthState.Loading
             try {
                 val userEmail = usuario.correo.lowercase().trim()
-                val result = auth.createUserWithEmailAndPassword(userEmail, usuario.contraseña).await()
+
+                // 1. Creamos la cuenta en Firebase Auth PRIMERO.
+                // Esto inicia sesión automáticamente y permite que las reglas de Firestore nos den acceso.
+                val result = auth.createUserWithEmailAndPassword(userEmail, pass).await()
                 val uid = result.user?.uid ?: ""
-                
-                // Actualizamos el nombre en Auth (apellidos los guardamos en Firestore)
+
+                // FIX: Bloque de Firestore separado para distinguir su error del de Auth.
+                // Si falla aquí, sabemos que la cuenta Auth se creó bien pero el perfil no se guardó,
+                // evitando así que el error de Firestore se confunda con "credenciales incorrectas".
+                try {
+                    // 2. Guardamos los datos en Firestore usando el email como ID del documento.
+                    db.collection("perfiles_detallados")
+                        .document(userEmail)
+                        .set(usuario.copy(correo = userEmail, id = uid))
+                        .await()
+
+                    // 3. (Redundante tras incluir id en el set, pero se mantiene por compatibilidad)
+                    db.collection("perfiles_detallados")
+                        .document(userEmail)
+                        .update("id", uid)
+                        .await()
+
+                } catch (firestoreEx: Exception) {
+                    // La cuenta Auth se creó correctamente, pero Firestore rechazó la escritura.
+                    // Causa más probable: reglas de Firestore demasiado restrictivas (allow write: if false).
+                    // Solución: ajusta las reglas en la consola de Firebase para permitir
+                    // escritura al usuario autenticado sobre su propio documento.
+                    _authState.value = AuthState.Error(
+                        "Cuenta creada pero error al guardar el perfil. " +
+                        "Revisa las reglas de Firestore. (${firestoreEx.localizedMessage})"
+                    )
+                    return@launch
+                }
+
                 val profileUpdates = com.google.firebase.auth.userProfileChangeRequest {
                     displayName = "${usuario.nombre} ${usuario.apellidos}".trim()
                 }
                 result.user?.updateProfile(profileUpdates)?.await()
-                
-                // USAMOS EL CORREO COMO CLAVE PRIMARIA (DOCUMENT ID) para coincidir con la base de datos
-                db.collection("perfiles_detallados").document(userEmail).set(usuario.copy(id = uid, correo = userEmail)).await()
-                
+
                 _authState.value = AuthState.Success(uid)
-            } catch (e: com.google.firebase.auth.FirebaseAuthUserCollisionException) {
-                try {
-                    val loginResult = auth.signInWithEmailAndPassword(usuario.correo.lowercase().trim(), usuario.contraseña).await()
-                    _authState.value = AuthState.Success(loginResult.user?.uid ?: "")
-                } catch (loginError: Exception) {
-                    _authState.value = AuthState.Error("La cuenta ya existe y la contraseña es incorrecta.")
-                }
+
             } catch (e: Exception) {
-                _authState.value = AuthState.Error(e.localizedMessage ?: "Error al registrar")
+                _authState.value = AuthState.Error(handleAuthError(e))
             }
         }
     }
@@ -94,7 +125,7 @@ class AuthViewModel : ViewModel() {
                 auth.sendPasswordResetEmail(email.lowercase().trim()).await()
                 _authState.value = AuthState.Idle
             } catch (e: Exception) {
-                _authState.value = AuthState.Error(e.localizedMessage ?: "Error al enviar el email")
+                _authState.value = AuthState.Error(handleAuthError(e))
             }
         }
     }
@@ -108,7 +139,6 @@ class AuthViewModel : ViewModel() {
                 val user = result.user
                 if (user != null) {
                     val email = user.email?.lowercase()?.trim() ?: ""
-                    // Verificamos si existe por Email ID
                     val doc = db.collection("perfiles_detallados").document(email).get().await()
                     if (!doc.exists()) {
                         val names = user.displayName?.split(" ") ?: emptyList()
@@ -123,11 +153,22 @@ class AuthViewModel : ViewModel() {
                     _authState.value = AuthState.Success(user.uid)
                 }
             } catch (e: Exception) {
-                _authState.value = AuthState.Error(e.localizedMessage ?: "Error con Google")
+                _authState.value = AuthState.Error(handleAuthError(e))
             }
         }
     }
-    
+
+    private fun handleAuthError(e: Exception): String {
+        return when (e) {
+            is FirebaseAuthInvalidUserException -> "No existe ninguna cuenta vinculada a este correo electrónico."
+            is FirebaseAuthInvalidCredentialsException -> "Credenciales incorrectas. Revisa el correo y la contraseña."
+            is FirebaseAuthUserCollisionException -> "Este correo electrónico ya está registrado. Prueba a iniciar sesión."
+            is FirebaseAuthWeakPasswordException -> "La contraseña es demasiado corta. Debe tener al menos 6 caracteres."
+            is FirebaseNetworkException -> "Error de conexión. Revisa tu acceso a Internet."
+            else -> e.localizedMessage ?: "Ha ocurrido un error inesperado."
+        }
+    }
+
     fun resetState() {
         _authState.value = AuthState.Idle
     }

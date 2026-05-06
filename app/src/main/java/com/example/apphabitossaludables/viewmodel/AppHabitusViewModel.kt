@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -77,6 +78,19 @@ class AppHabitusViewModel(
     private val _userProfile = MutableStateFlow<Usuario?>(null)
     val userProfile: StateFlow<Usuario?> = _userProfile.asStateFlow()
 
+    val score: StateFlow<Int> = combine(
+        _actividad, 
+        _nutricion, 
+        _sueño, 
+        _userProfile
+    ) { act, nut, sue, profile ->
+        val objPasos = profile?.objetivoPasos?.toFloat() ?: 8000f
+        val actScore = (act.pasos / objPasos).coerceIn(0f, 1f) * 40
+        val sleepScore = ((sue?.duracionTotalMinutos ?: 0) / 450f).coerceIn(0f, 1f) * 40
+        val nutScore = (nut.hidratacionLitros / 2.0).coerceIn(0.0, 1.0) * 20
+        (actScore + sleepScore + nutScore).toInt()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     // Propiedades reactivas derivadas del perfil del usuario
     val userName: StateFlow<String> = userProfile
         .map { usuario ->
@@ -100,22 +114,56 @@ class AppHabitusViewModel(
     private val _historialPeso = MutableStateFlow<List<Pair<java.time.Instant, Double>>>(emptyList())
     val historialPeso: StateFlow<List<Pair<java.time.Instant, Double>>> = _historialPeso.asStateFlow()
 
-    // Listener para detectar cambios en la autenticación y disparar la carga del perfil
+    /**
+     * Listener para detectar cambios en la autenticación.
+     * Centraliza la carga y limpieza de datos para asegurar que no se realicen
+     * consultas (Firestore/Health Connect) sin una sesión activa.
+     */
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-        if (firebaseAuth.currentUser != null) {
-            fetchUserProfile()
+        val user = firebaseAuth.currentUser
+        if (user != null) {
+            // Usuario autenticado: Iniciamos carga secuencial de datos
+            inicializarDatosUsuario()
+        } else {
+            // Usuario desconectado: Limpiamos todos los estados reactivos
+            limpiarDatosUsuario()
         }
     }
 
-    init {
-        // Registramos el listener de sesión inmediatamente para capturar la sesión al abrir
-        auth.addAuthStateListener(authStateListener)
-        
+    private fun inicializarDatosUsuario() {
         viewModelScope.launch {
-            _pesoActual.value = repository.obtenerPesoActual()
-            _historialPeso.value = repository.obtenerHistorialPeso()
-            cargarDatosDelDiaInternal()
+            // 1. Cargamos el perfil (esto disparará a su vez la carga de datos de salud una vez obtenido)
+            fetchUserProfile()
+            
+            // 2. Cargamos datos físicos básicos del repositorio local/Health Connect
+            try {
+                _pesoActual.value = repository.obtenerPesoActual()
+                _historialPeso.value = repository.obtenerHistorialPeso()
+                // Nota: cargarDatosDelDiaInternal() ya es llamado dentro de fetchUserProfile() 
+                // cuando se recibe el objeto Usuario, pero lo llamamos aquí como fallback 
+                // por si el perfil de Firestore tarda o no existe todavía.
+                cargarDatosDelDiaInternal()
+            } catch (e: Exception) {
+                Log.e("AppHabitusViewModel", "Error en inicialización de salud", e)
+            }
         }
+    }
+
+    private fun limpiarDatosUsuario() {
+        _userProfile.value = null
+        _actividad.value = ActividadFisica()
+        _nutricion.value = Nutricion()
+        _signosVitales.value = SignosVitales()
+        _sueño.value = null
+        _pesoActual.value = 0.0
+        _historialPeso.value = emptyList()
+        _historialVitalidad.value = emptyList()
+    }
+
+    init {
+        // Registramos el listener de sesión inmediatamente.
+        // Ninguna consulta a datos_salud o perfil ocurre antes de que el listener detecte al usuario.
+        auth.addAuthStateListener(authStateListener)
     }
 
     override fun onCleared() {
@@ -139,7 +187,8 @@ class AppHabitusViewModel(
     }
 
     fun updateProfile(usuario: Usuario) {
-        val email = auth.currentUser?.email?.lowercase()?.trim() ?: return
+        val currentUser = auth.currentUser ?: return
+        val email = currentUser.email?.lowercase()?.trim() ?: return
         viewModelScope.launch {
             try {
                 // Sincronizamos usando el EMAIL como clave según la estructura vista
@@ -152,6 +201,7 @@ class AppHabitusViewModel(
     }
 
     fun agregarAgua(litros: Double) {
+        if (auth.currentUser == null) return
         viewModelScope.launch {
             try {
                 repository.agregarHidratacion(litros)
@@ -163,6 +213,7 @@ class AppHabitusViewModel(
     }
 
     fun eliminarAgua(id: String) {
+        if (auth.currentUser == null) return
         viewModelScope.launch {
             try {
                 repository.eliminarHidratacion(id)
@@ -174,6 +225,7 @@ class AppHabitusViewModel(
     }
 
     fun agregarComida(calorias: Double, proteinas: Double, carbohidratos: Double, grasas: Double, nombre: String = "Comida") {
+        if (auth.currentUser == null) return
         viewModelScope.launch {
             try {
                 repository.agregarComida(calorias, proteinas, carbohidratos, grasas, nombre)
@@ -185,6 +237,7 @@ class AppHabitusViewModel(
     }
 
     fun eliminarComida(id: String) {
+        if (auth.currentUser == null) return
         viewModelScope.launch {
             try {
                 repository.eliminarComida(id)
@@ -196,6 +249,7 @@ class AppHabitusViewModel(
     }
 
     fun eliminarUltimaAgua() {
+        if (auth.currentUser == null) return
         viewModelScope.launch {
             try {
                 repository.eliminarUltimaHidratacion()
@@ -207,13 +261,18 @@ class AppHabitusViewModel(
     }
 
     fun guardarPeso(kg: Double) {
+        val currentUser = auth.currentUser ?: return
+        val email = currentUser.email?.lowercase()?.trim() ?: return
         viewModelScope.launch {
             try {
                 repository.agregarPeso(kg)
                 _pesoActual.value = kg
                 _historialPeso.value = repository.obtenerHistorialPeso()
-                val email = auth.currentUser?.email?.lowercase()?.trim() ?: return@launch
+                
                 db.collection("perfiles_detallados").document(email).update("pesoKg", kg)
+                
+                // Actualizamos las métricas del día inmediatamente ya que el peso influye en las calorías
+                cargarDatosDelDiaInternal()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -250,6 +309,8 @@ class AppHabitusViewModel(
                     if (usuario != null) {
                         usuario.id = doc.id
                         _userProfile.value = usuario
+                        // Recalculamos datos del día por si el perfil (altura/objetivos) ha cambiado
+                        cargarDatosDelDiaInternal()
                     }
                 }
             } catch (e: Exception) {
@@ -261,12 +322,14 @@ class AppHabitusViewModel(
     }
 
     fun cargarDatosDelDia() {
+        if (auth.currentUser == null) return
         viewModelScope.launch {
             cargarDatosDelDiaInternal()
         }
     }
 
     private suspend fun cargarDatosDelDiaInternal() {
+        if (auth.currentUser == null) return
         val fecha = _fechaSeleccionada.value
         val nuevaActividad = repository.obtenerActividadFisica(fecha)
         val nuevaNutricion = repository.obtenerNutricion(fecha)
@@ -274,13 +337,65 @@ class AppHabitusViewModel(
         val nuevoSueno = repository.leerSuenoDelDia(fecha)
         val nuevoHistorial = repository.obtenerVitalidadSemanal(fecha)
 
-        _actividad.value = nuevaActividad
+        // Buscamos el peso más cercano a la fecha seleccionada en el historial (sin pasarnos de fecha)
+        val pesoParaFecha = _historialPeso.value
+            .filter { !it.first.atZone(java.time.ZoneId.systemDefault()).toLocalDate().isAfter(fecha) }
+            .maxByOrNull { it.first }?.second
+            ?: _pesoActual.value.takeIf { it > 0 }
+            ?: _userProfile.value?.pesoKg
+            ?: 0.0
+
+        // Calculamos las calorías y distancia personalizadas
+        val distanciaEstimada = calcularDistanciaEstimada(nuevaActividad.pasos, _userProfile.value)
+        val actividadCalculada = nuevaActividad.copy(
+            caloriasQuemadas = if (pesoParaFecha > 0) calcularCaloriasMET(nuevaActividad, pesoParaFecha) else nuevaActividad.caloriasQuemadas,
+            // Si Health Connect devuelve 0 o una distancia sospechosamente baja, usamos la estimada por pasos y altura
+            distanciaMetros = if (nuevaActividad.distanciaMetros < (distanciaEstimada * 0.1)) distanciaEstimada else nuevaActividad.distanciaMetros
+        )
+
+        _actividad.value = actividadCalculada
         _nutricion.value = nuevaNutricion
         _signosVitales.value = nuevosSignos
         _sueño.value = nuevoSueno
         _historialVitalidad.value = nuevoHistorial
 
-        sincronizarDatosConFirebase(nuevaActividad, nuevaNutricion, nuevosSignos, nuevoSueno, fecha)
+        sincronizarDatosConFirebase(actividadCalculada, nuevaNutricion, nuevosSignos, nuevoSueno, fecha)
+    }
+
+    private fun calcularCaloriasMET(act: ActividadFisica, peso: Double): Double {
+        // kcal/min = MET * 3.5 * Peso (kg) / 200
+        var totalKcal = 0.0
+        
+        if (act.sesionesEjercicio.isNotEmpty()) {
+            totalKcal = act.sesionesEjercicio.sumOf { sesion ->
+                val met = when (sesion.tipo) {
+                    "Correr" -> 8.0
+                    "Caminar" -> 3.5
+                    "Ciclismo" -> 7.5
+                    "Natación" -> 7.0
+                    "Pesas" -> 5.0
+                    else -> 4.5
+                }
+                (met * 3.5 * peso / 200.0) * sesion.duracionMinutos
+            }
+        } else if (act.pasos > 0) {
+            // Si no hay sesiones pero hay pasos, estimamos 100 pasos/minuto a un MET de 3.5 (caminar)
+            val minutosEstimados = act.pasos / 100.0
+            totalKcal = (3.5 * 3.5 * peso / 200.0) * minutosEstimados
+        }
+        
+        return if (totalKcal > 0) totalKcal else act.caloriasQuemadas
+    }
+
+    private fun calcularDistanciaEstimada(pasos: Long, usuario: Usuario?): Double {
+        if (pasos <= 0) return 0.0
+        // Estimación de zancada: Altura * factor (0.415 para hombres, 0.413 para mujeres)
+        val altura = if (usuario != null && usuario.alturaCm > 0) usuario.alturaCm.toDouble() else 170.0
+        val factor = if (usuario?.genero?.lowercase()?.contains("mujer") == true || 
+            usuario?.genero?.lowercase()?.contains("femenino") == true) 0.413 else 0.415
+        
+        val longitudZancadaMetros = (altura * factor) / 100.0
+        return pasos * longitudZancadaMetros
     }
 
     private suspend fun sincronizarDatosConFirebase(
@@ -290,10 +405,12 @@ class AppHabitusViewModel(
         sue: Suenio?,
         fecha: LocalDate
     ) {
-        val uid = auth.currentUser?.uid ?: return
-        val email = auth.currentUser?.email ?: ""
+        val currentUser = auth.currentUser ?: return
+        val uid = currentUser.uid
+        val email = currentUser.email ?: ""
         
-        val objPasos = _userProfile.value?.objetivoPasos?.toFloat() ?: 10000f
+        // Usamos el objetivo personalizado del usuario o 8000 por defecto (consistente con UI)
+        val objPasos = _userProfile.value?.objetivoPasos?.toFloat() ?: 8000f
         val actScore = (act.pasos / objPasos).coerceIn(0f, 1f) * 40
         val sleepScore = ((sue?.duracionTotalMinutos ?: 0) / 450f).coerceIn(0f, 1f) * 40
         val nutScore = (nut.hidratacionLitros / 2.0).coerceIn(0.0, 1.0) * 20

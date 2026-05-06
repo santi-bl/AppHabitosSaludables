@@ -51,6 +51,13 @@ fun AppNavigation() {
         factory = AppHabitusViewModelFactory(healthRepository, preferencesRepository)
     )
 
+    // Función auxiliar para evitar navegación accidental a pantallas vacías
+    val onBackSafe = {
+        if (nav.previousBackStackEntry != null) {
+            nav.popBackStack()
+        }
+    }
+
     NavHost(navController = nav, startDestination = startDest) {
         composable("login") {
             LoginScreen(
@@ -68,21 +75,21 @@ fun AppNavigation() {
             )
         }
         composable("forgot_password") {
-            ForgotPasswordScreen(onBack = { nav.popBackStack() })
+            ForgotPasswordScreen(onBack = onBackSafe)
         }
         
         composable("main_content") {
             MainContainer(healthViewModel, nav)
         }
 
-        // Pantallas de detalle
-        composable("weight") { WeightScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
-        composable("exercise") { ActivityScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
-        composable("dream") { DreamScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
-        composable("food") { NutritionScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
-        composable("vitals") { VitalsScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
-        composable("edit_profile") { EditProfileScreen(viewModel = healthViewModel, onBack = { nav.popBackStack() }) }
-        composable("privacy") { PrivacyScreen(onBack = { nav.popBackStack() }) }
+        // Pantallas de detalle con navegación segura
+        composable("weight") { WeightScreen(viewModel = healthViewModel, onBack = onBackSafe) }
+        composable("exercise") { ActivityScreen(viewModel = healthViewModel, onBack = onBackSafe) }
+        composable("dream") { DreamScreen(viewModel = healthViewModel, onBack = onBackSafe) }
+        composable("food") { NutritionScreen(viewModel = healthViewModel, onBack = onBackSafe) }
+        composable("vitals") { VitalsScreen(viewModel = healthViewModel, onBack = onBackSafe) }
+        composable("edit_profile") { EditProfileScreen(viewModel = healthViewModel, onBack = onBackSafe) }
+        composable("privacy") { PrivacyScreen(onBack = onBackSafe) }
     }
 }
 

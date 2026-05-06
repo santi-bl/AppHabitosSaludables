@@ -90,7 +90,11 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Peso Actual", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(verticalAlignment = Alignment.Bottom) {
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
                             text = if (pesoActual > 0) String.format("%.1f", pesoActual) else "--",
                             fontSize = 48.sp,
@@ -153,11 +157,12 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(formatter.format(fecha), fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.width(16.dp))
                         Text("${String.format("%.1f", peso)} kg", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -181,7 +186,7 @@ fun WeightScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 },
                 confirmButton = {
                     Button(onClick = {
-                        val peso = weightInput.toDoubleOrNull()
+                        val peso = weightInput.replace(',', '.').toDoubleOrNull()
                         if (peso != null) {
                             viewModel.guardarPeso(peso)
                             showDialog = false

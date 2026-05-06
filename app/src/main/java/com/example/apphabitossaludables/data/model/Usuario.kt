@@ -13,7 +13,6 @@ data class Usuario(
     var nombre: String ="",
     var apellidos: String ="",
     var correo:String="",
-    var contraseña:String="",
     var fechaNacimiento: Date? = null,
     var edad: Int = 0,
     var pesoKg: Double = 0.0,
