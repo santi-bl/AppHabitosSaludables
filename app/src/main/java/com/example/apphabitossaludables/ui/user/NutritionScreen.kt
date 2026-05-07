@@ -36,6 +36,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.apphabitossaludables.data.model.Comida
+import com.example.apphabitossaludables.data.model.RegistroNutricional
+import com.example.apphabitossaludables.data.model.TipoRegistro
 import com.example.apphabitossaludables.viewmodel.AppHabitusViewModel
 import java.time.LocalDate
 import java.time.ZoneId
@@ -179,21 +181,31 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
                 )
             }
 
-            if (nutricion.comidas.isEmpty()) {
+            if (nutricion.registros.isEmpty()) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
-                        Text("No hay comidas registradas", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("No hay registros hoy", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
-                items(nutricion.comidas) { comida ->
-                    MealRow(
-                        comida = comida,
+                items(nutricion.registros) { registro ->
+                    UnifiedNutritionRow(
+                        registro = registro,
                         onEdit = {
-                            editingComida = comida
-                            showFoodDialog = true
+                            if (registro.tipo == TipoRegistro.COMIDA) {
+                                // Buscamos el objeto Comida original para editar
+                                val comidaOriginal = nutricion.comidas.find { it.id == registro.id }
+                                editingComida = comidaOriginal
+                                showFoodDialog = true
+                            }
                         },
-                        onDelete = { viewModel.eliminarComida(comida.id) }
+                        onDelete = {
+                            if (registro.tipo == TipoRegistro.COMIDA) {
+                                viewModel.eliminarComida(registro.id)
+                            } else {
+                                viewModel.eliminarAgua(registro.id)
+                            }
+                        }
                     )
                 }
             }
@@ -216,8 +228,9 @@ fun NutritionScreen(viewModel: AppHabitusViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-fun MealRow(comida: Comida, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun UnifiedNutritionRow(registro: RegistroNutricional, onEdit: () -> Unit, onDelete: () -> Unit) {
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+    val esAgua = registro.tipo == TipoRegistro.AGUA
     
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
@@ -228,17 +241,40 @@ fun MealRow(comida: Comida, onEdit: () -> Unit, onDelete: () -> Unit) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Icono dinámico según tipo
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        if (esAgua) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (esAgua) Icons.Default.LocalDrink else Icons.Default.Restaurant,
+                    contentDescription = null,
+                    tint = if (esAgua) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             Column(modifier = Modifier.weight(1f)) {
-                Text(comida.nombre, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                Text(registro.nombre, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "${comida.calorias.toInt()} kcal • ${timeFormatter.format(comida.momento)}",
+                    "${registro.valor} • ${timeFormatter.format(registro.momento)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            
             Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary)
+                if (!esAgua) {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = MaterialTheme.colorScheme.error)

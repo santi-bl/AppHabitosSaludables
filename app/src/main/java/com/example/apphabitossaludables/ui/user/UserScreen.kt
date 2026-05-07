@@ -116,14 +116,16 @@ fun UserScreen(
         }
     }
 
+    val userProfile by viewModel.userProfile.collectAsState()
     val actividad by viewModel.actividad.collectAsState()
     val nutricion by viewModel.nutricion.collectAsState()
     val signosVitales by viewModel.signosVitales.collectAsState()
     val sueño by viewModel.sueño.collectAsState()
     val historial by viewModel.historialVitalidad.collectAsState()
 
-    val score = remember(actividad, nutricion, sueño) {
-        val actScore = (actividad.pasos / 8000f).coerceIn(0f, 1f) * 40
+    val score = remember(actividad, nutricion, sueño, userProfile) {
+        val metaPasos = userProfile?.objetivoPasos?.toFloat() ?: 10000f
+        val actScore = (actividad.pasos / metaPasos).coerceIn(0f, 1f) * 40
         val sleepScore = ((sueño?.duracionTotalMinutos ?: 0) / 450f).coerceIn(0f, 1f) * 40
         val nutScore = (nutricion.hidratacionLitros / 2.0).coerceIn(0.0, 1.0) * 20
         (actScore + sleepScore + nutScore).toInt()
